@@ -372,9 +372,7 @@ class _AppScreenState extends State<AppScreen> {
                             color: AppColors.text1)),
                     GestureDetector(
                       onTap: () => setState(() => _notifOpen = false),
-                      child: const Text('✕',
-                          style: TextStyle(
-                              color: AppColors.text3, fontSize: 14)),
+                      child: const Icon(Icons.close, size: 16, color: AppColors.text3),
                     ),
                   ]),
             ),

@@ -37,7 +37,7 @@ class PageRouter extends StatelessWidget {
 Widget defaultPage(String id) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 18),
       child: Column(children: [
-        const Text('🚧', style: TextStyle(fontSize: 40)),
+        const Icon(Icons.construction_rounded, size: 40, color: Color(0xFFAEA8CC)),
         const SizedBox(height: 12),
         Text(id[0].toUpperCase() + id.substring(1),
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),

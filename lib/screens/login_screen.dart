@@ -41,8 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    Text('✦ ',
-                        style: TextStyle(color: AppColors.navy2, fontSize: 12)),
+                    Icon(Icons.auto_awesome_rounded, size: 12, color: AppColors.navy2),
                     Text('The Future of Pedagogy',
                         style: GoogleFonts.plusJakartaSans(
                             fontSize: 12,
@@ -292,7 +291,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 12),
                   Row(children: [
-                    Text('✦ AI Insight',
+                    Text('AI Insight',
                         style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -315,11 +314,11 @@ class _LoginScreenState extends State<LoginScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Wrap(spacing: 8, runSpacing: 8, children: [
-                _pill('🤖 AI Analytics'),
-                _pill('📋 Attendance'),
-                _pill('💳 Fee Management'),
-                _pill('📚 Academics'),
-                _pill('👨‍👩‍👧 Parent Portal'),
+                _pill('AI Analytics'),
+                _pill('Attendance'),
+                _pill('Fee Management'),
+                _pill('Academics'),
+                _pill('Parent Portal'),
               ]),
             ),
 
