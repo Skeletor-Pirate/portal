@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme.dart';
 import '../../models/role_config.dart';
+import '../../services/api_service.dart';
 import '../../widgets/builders.dart';
 import '../page_router.dart';
 
@@ -23,14 +24,32 @@ class TeacherPages extends StatelessWidget {
   }
 }
 
-class _Dashboard extends StatelessWidget {
+class _Dashboard extends StatefulWidget {
   const _Dashboard();
   @override
-  Widget build(BuildContext context) => Column(
+  State<_Dashboard> createState() => _DashboardState();
+}
+class _DashboardState extends State<_Dashboard> {
+  ProfileMe? _profile;
+  @override
+  void initState() {
+    super.initState();
+    if (TokenStore.hasTokens) {
+      ApiService().getMyProfile().then((p) {
+        if (mounted) setState(() => _profile = p);
+      }).catchError((_) {});
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    final cfg    = kRoles[UserRole.teacher]!;
+    final name   = _profile?.displayName ?? cfg.name;
+    final school = _profile?.schoolName  ?? 'Westfield Academy';
+    return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      heroPortrait(kRoles[UserRole.teacher]!.avatarAsset, 'Westfield Academy'),
-      profileInfo('Dr. Elena Vance', 'Senior Faculty · Science', 'Faculty ID: #WA-T-042'),
+      heroPortrait(cfg.avatarAsset, school),
+      profileInfo(name, 'Senior Faculty · Science', cfg.idLabel),
       pageTitle('Academic', subtitle: 'AI-Powered Portal'),
       quickStatsBar([
         const QsItem(val: '142', label: 'Students'),
@@ -46,16 +65,17 @@ class _Dashboard extends StatelessWidget {
       ])),
       secLabel('Quick Actions'),
       actionGrid([
-        ActionItem(icon: Icons.fact_check_rounded, label: 'Attendance',  bg: AppColors.greenLight, iconColor: AppColors.green),
-        ActionItem(icon: Icons.note_add_rounded,      label: 'Assignment',  bg: AppColors.blueLight,  iconColor: AppColors.blue),
-        ActionItem(icon: Icons.bar_chart_rounded,      label: 'Grades',      bg: AppColors.tealLight,  iconColor: AppColors.teal),
-        ActionItem(icon: Icons.edit_rounded,     label: 'Exam Grades', bg: AppColors.amberLight, iconColor: AppColors.amber),
-        ActionItem(icon: Icons.trending_up_rounded,     label: 'Analytics',   bg: AppColors.blueLight,  iconColor: AppColors.blue),
-        ActionItem(icon: Icons.campaign_rounded,      label: 'Announce',    bg: AppColors.redLight,   iconColor: AppColors.red),
+        ActionItem(icon: Icons.fact_check_rounded,  label: 'Attendance',  bg: AppColors.greenLight, iconColor: AppColors.green),
+        ActionItem(icon: Icons.note_add_rounded,    label: 'Assignment',  bg: AppColors.blueLight,  iconColor: AppColors.blue),
+        ActionItem(icon: Icons.bar_chart_rounded,   label: 'Grades',      bg: AppColors.tealLight,  iconColor: AppColors.teal),
+        ActionItem(icon: Icons.edit_rounded,        label: 'Exam Grades', bg: AppColors.amberLight, iconColor: AppColors.amber),
+        ActionItem(icon: Icons.trending_up_rounded, label: 'Analytics',   bg: AppColors.blueLight,  iconColor: AppColors.blue),
+        ActionItem(icon: Icons.campaign_rounded,    label: 'Announce',    bg: AppColors.redLight,   iconColor: AppColors.red),
       ]),
       const SizedBox(height: 16),
     ],
   );
+  }
 }
 
 class _Attendance extends StatefulWidget {
@@ -153,20 +173,91 @@ class _Assignments extends StatelessWidget {
   );
 }
 
-class _Grades extends StatelessWidget {
+class _Grades extends StatefulWidget {
   const _Grades();
   @override
+  State<_Grades> createState() => _GradesState();
+}
+class _GradesState extends State<_Grades> {
+  int _selectedClass = 0;
+
+  static const _classes = ['Science 10-A', 'Physics 11-B', 'Chemistry 12'];
+  static const _exams   = ['Mid-Term',     'Unit Test',    'Practical'];
+
+  static const _classData = [
+    // Science 10-A
+    [('A. Okonkwo', '94', 'A+', AppColors.greenLight, AppColors.green),
+     ('B. Carter',  '67', 'B',  AppColors.blueLight,  AppColors.blue),
+     ('C. Singh',   '88', 'A',  AppColors.greenLight, AppColors.green),
+     ('D. Lee',     '45', 'D',  AppColors.amberLight, AppColors.amber),
+     ('E. Martinez','78', 'B+', AppColors.blueLight,  AppColors.blue),
+     ('F. Brown',   '91', 'A+', AppColors.greenLight, AppColors.green)],
+    // Physics 11-B
+    [('R. Sharma',  '82', 'A',  AppColors.greenLight, AppColors.green),
+     ('K. Patel',   '74', 'B+', AppColors.blueLight,  AppColors.blue),
+     ('L. Wong',    '91', 'A+', AppColors.greenLight, AppColors.green),
+     ('M. Nair',    '55', 'C',  AppColors.amberLight, AppColors.amber),
+     ('P. Gupta',   '87', 'A',  AppColors.greenLight, AppColors.green)],
+    // Chemistry 12
+    [('S. Iyer',   '79', 'B+', AppColors.blueLight,  AppColors.blue),
+     ('T. Rao',    '93', 'A+', AppColors.greenLight, AppColors.green),
+     ('U. Das',    '61', 'B',  AppColors.blueLight,  AppColors.blue),
+     ('V. Menon',  '48', 'D',  AppColors.amberLight, AppColors.amber),
+     ('W. Nair',   '84', 'A',  AppColors.greenLight, AppColors.green)],
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    final rows = [
-      ('A. Okonkwo', '94', 'A+', AppColors.greenLight, AppColors.green),
-      ('B. Carter',  '67', 'B',  AppColors.blueLight,  AppColors.blue),
-      ('C. Singh',   '88', 'A',  AppColors.greenLight, AppColors.green),
-      ('D. Lee',     '45', 'D',  AppColors.amberLight, AppColors.amber),
-      ('E. Martinez','78', 'B+', AppColors.blueLight,  AppColors.blue),
-      ('F. Brown',   '91', 'A+', AppColors.greenLight, AppColors.green),
-    ];
+    final rows = _classData[_selectedClass];
+    final cls  = _classes[_selectedClass];
+    final exam = _exams[_selectedClass];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      pageTitle('Record Grades', subtitle: 'Science 10-A · Mid-Term'),
+      pageTitle('Record Grades', subtitle: 'Select class to view or enter grades'),
+      // Class selector chips — shows all 3 classes
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        child: Row(children: List.generate(_classes.length, (i) {
+          final active = i == _selectedClass;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedClass = i),
+            child: Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                gradient: active ? blueGrad() : null,
+                color: active ? null : AppColors.surface,
+                border: Border.all(color: active ? Colors.transparent : AppColors.border, width: 1.5),
+                borderRadius: BorderRadius.circular(rFull),
+                boxShadow: active ? shadowSm : null,
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_classes[i], style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11, fontWeight: FontWeight.w700,
+                    color: active ? Colors.white : AppColors.text2)),
+                Text(_exams[i], style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9, color: active ? Colors.white.withOpacity(0.75) : AppColors.text4)),
+              ]),
+            ),
+          );
+        })),
+      ),
+      // Context header for selected class
+      Container(
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.blueLight,
+          borderRadius: BorderRadius.circular(rMd),
+          border: Border.all(color: AppColors.blueMid, width: 1.5),
+        ),
+        child: Row(children: [
+          const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.blue),
+          const SizedBox(width: 8),
+          Text('$cls · $exam — ${rows.length} students', style: GoogleFonts.plusJakartaSans(
+              fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.blue)),
+        ]),
+      ),
       appCard(Table(
         columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(1), 2: FlexColumnWidth(1)},
         children: [
@@ -187,7 +278,7 @@ class _Grades extends StatelessWidget {
           )),
         ],
       )),
-      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('Publish Grades')),
+      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('Publish Grades for $cls')),
       const SizedBox(height: 16),
     ]);
   }
@@ -265,18 +356,34 @@ class _Analytics extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      pageTitle('Student Analytics', subtitle: 'Class performance insights'),
+      pageTitle('Student Analytics', subtitle: 'Mid-Term · All Classes · Term 2'),
+      // Context banner
+      Container(
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.blueLight,
+          borderRadius: BorderRadius.circular(rMd),
+          border: Border.all(color: AppColors.blueMid, width: 1.5),
+        ),
+        child: Row(children: [
+          const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.blue),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Aggregated across Physics 11-B, Science 10-A & Chemistry 12 · Mid-Term 2024–25',
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.blue))),
+        ]),
+      ),
       statGrid([
-        StatItem(icon: Icons.bar_chart_rounded,    iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '78%', label: 'Class Avg',   delta: 3),
-        StatItem(icon: Icons.emoji_events_rounded,        iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '6',   label: 'Top Scorers', delta: 0),
-        StatItem(icon: Icons.warning_amber_rounded, iconBg: AppColors.redLight,   iconColor: AppColors.red,   val: '4',   label: 'At Risk',     delta: -2),
-        StatItem(icon: Icons.fact_check_rounded,iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '91%', label: 'Attendance',  delta: 1),
+        StatItem(icon: Icons.bar_chart_rounded,    iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '78%', label: 'Class Avg (Mid-Term)',  delta: 3),
+        StatItem(icon: Icons.emoji_events_rounded,        iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '6',   label: 'Top Scorers (>90%)', delta: 0),
+        StatItem(icon: Icons.warning_amber_rounded, iconBg: AppColors.redLight,   iconColor: AppColors.red,   val: '4',   label: 'At Risk (<50%)',     delta: -2),
+        StatItem(icon: Icons.fact_check_rounded,iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '91%', label: 'Attendance (Term 2)', delta: 1),
       ]),
-      secLabel('Subject Averages'),
+      secLabel('Subject Averages — Mid-Term'),
       appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
-        ProgressBar(label: 'Physics',   value: 82, gradient: tealGrad()),
-        ProgressBar(label: 'Science',   value: 75, gradient: blueGrad()),
-        ProgressBar(label: 'Chemistry', value: 68, gradient: amberGrad()),
+        ProgressBar(label: 'Physics 11-B',   value: 82, gradient: tealGrad()),
+        ProgressBar(label: 'Science 10-A',   value: 75, gradient: blueGrad()),
+        ProgressBar(label: 'Chemistry 12',   value: 68, gradient: amberGrad()),
       ]))),
       secLabel('AI Insights'),
       appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [

@@ -70,7 +70,7 @@ Widget statGrid(List<StatItem> items) => Padding(
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 1.55,
+        childAspectRatio: 1.45,
         children: items.map((i) => _StatCard(item: i)).toList(),
       ),
     );
@@ -278,15 +278,11 @@ class _ProgressBarState extends State<ProgressBar> with SingleTickerProviderStat
                     fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text1)),
           ]),
           const SizedBox(height: 5),
-          Container(
-            height: 7,
-            decoration: BoxDecoration(
-              color: AppColors.bg,
-              border: Border.all(color: AppColors.border),
-              borderRadius: BorderRadius.circular(rFull),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(rFull),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(rFull),
+            child: Container(
+              height: 7,
+              color: AppColors.border,
               child: AnimatedBuilder(
                 animation: _anim,
                 builder: (_, __) => FractionallySizedBox(
@@ -832,41 +828,57 @@ Widget dangerBtn(String label, {VoidCallback? onTap}) =>
     );
 
 // ── HERO PORTRAIT ──────────────────────────────
-Widget heroPortrait(String avatarAsset, String school) => Stack(children: [
-      SizedBox(
-        height: 240,
-        width: double.infinity,
-        child: ShaderMask(
-          shaderCallback: (rect) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.transparent, Colors.white.withOpacity(0.95)],
-            stops: const [0.5, 1.0],
-          ).createShader(rect),
-          blendMode: BlendMode.dstOut,
-          child: Image.asset(avatarAsset,
-              width: double.infinity, height: 240, fit: BoxFit.cover,
+Widget heroPortrait(String avatarAsset, String school) => Stack(
+      alignment: Alignment.bottomLeft,
+      children: [
+        SizedBox(
+          height: 200,
+          width: double.infinity,
+          child: ShaderMask(
+            shaderCallback: (rect) => const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x00FFFFFF), Color(0xFFFFFFFF)],
+              stops: [0.45, 1.0],
+            ).createShader(rect),
+            blendMode: BlendMode.dstOut,
+            child: Image.asset(
+              avatarAsset,
+              width: double.infinity,
+              height: 200,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
               errorBuilder: (_, __, ___) => Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [AppColors.gradA, AppColors.gradB],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
-              )),
+              ),
+            ),
+          ),
         ),
-      ),
-      Positioned(top: 12, left: 12, child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppColors.navy.withOpacity(0.75),
-          borderRadius: BorderRadius.circular(rFull),
+        Positioned(
+          top: 12,
+          left: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.navy.withOpacity(0.75),
+              borderRadius: BorderRadius.circular(rFull),
+            ),
+            child: Text(school.toUpperCase(),
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                    color: Colors.white)),
+          ),
         ),
-        child: Text(school.toUpperCase(), style: GoogleFonts.plusJakartaSans(
-            fontSize: 9, fontWeight: FontWeight.w700,
-            letterSpacing: 1.5, color: Colors.white)),
-      )),
-    ]);
+      ],
+    );
 
 Widget profileInfo(String name, String role, String idLabel) => Container(
       padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),

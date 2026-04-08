@@ -60,20 +60,64 @@ class _ChildOverview extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      pageTitle('Child Overview', subtitle: 'Arjun Mehta · Grade 10A'),
+      pageTitle('Child Overview', subtitle: 'Arjun Mehta · Grade 10A · Term 2'),
       statGrid([
-        StatItem(icon: Icons.bar_chart_rounded,     iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '88%', label: 'Avg Grade',     delta: 3),
-        StatItem(icon: Icons.fact_check_rounded,iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '91%', label: 'Attendance',    delta: 1),
-        StatItem(icon: Icons.description_rounded,       iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '2',   label: 'Pending Tasks', delta: 0),
-        StatItem(icon: Icons.emoji_events_rounded,         iconBg: AppColors.tealLight,  iconColor: AppColors.teal,  val: 'B+',  label: 'GPA Band',      delta: 0),
+        StatItem(icon: Icons.bar_chart_rounded,      iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '88%', label: 'Avg Grade',     delta: 3),
+        StatItem(icon: Icons.fact_check_rounded,     iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '91%', label: 'Attendance',    delta: 1),
+        StatItem(icon: Icons.description_rounded,    iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '2',   label: 'Pending Tasks', delta: 0),
+        StatItem(icon: Icons.emoji_events_rounded,   iconBg: AppColors.tealLight,  iconColor: AppColors.teal,  val: 'B+',  label: 'GPA Band',      delta: 0),
       ]),
-      secLabel('Subject Grades'),
-      appCard(GradeBars(items: [
-        GradeItem(subject: 'Mathematics', value: 82, color: AppColors.blue),
-        GradeItem(subject: 'English',     value: 79, color: AppColors.navy),
-        GradeItem(subject: 'Physics',     value: 91, color: AppColors.teal),
-        GradeItem(subject: 'Chemistry',   value: 85, color: AppColors.green),
-        GradeItem(subject: 'History',     value: 76, color: AppColors.amber),
+      // Recent test scores — different from Grades page which shows subject averages
+      secLabel('Recent Test Scores'),
+      appCard(Column(children: [
+        ...[
+          ('Math Mid-Term',       'Apr 2',  '82', AppColors.blueLight,  AppColors.blue),
+          ('Physics Unit Test',   'Mar 28', '91', AppColors.greenLight, AppColors.green),
+          ('English Essay',       'Mar 25', '79', AppColors.blueLight,  AppColors.blue),
+          ('Chemistry Practical', 'Mar 20', '85', AppColors.greenLight, AppColors.green),
+          ('History Quiz',        'Mar 15', '76', AppColors.amberLight, AppColors.amber),
+        ].map((t) {
+          final score = int.parse(t.$3);
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+            child: Row(children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(color: t.$4, borderRadius: BorderRadius.circular(rMd)),
+                child: Center(child: Icon(Icons.quiz_rounded, size: 18, color: t.$5)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(t.$1, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text1)),
+                Text(t.$2, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text3)),
+              ])),
+              Text('${t.$3}/100', style: GoogleFonts.dmSerifDisplay(fontSize: 15, color: score >= 80 ? AppColors.green : score >= 60 ? AppColors.blue : AppColors.amber)),
+            ]),
+          );
+        }),
+      ])),
+      // Upcoming tasks — not available on the Grades page
+      secLabel('Upcoming Deadlines'),
+      appCard(Column(children: [
+        ...[
+          ('Math Assignment',  'Due Tomorrow',  AppColors.redLight,   AppColors.red),
+          ('English Essay',    'Due Apr 7',      AppColors.amberLight, AppColors.amber),
+          ('Physics Lab',      'Due Apr 10',     AppColors.blueLight,  AppColors.blue),
+        ].map((d) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(color: d.$3, borderRadius: BorderRadius.circular(rMd)),
+              child: Center(child: Icon(Icons.assignment_rounded, size: 18, color: d.$4)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(d.$1, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text1))),
+            appBadge(d.$2, bg: d.$3, color: d.$4),
+          ]),
+        )),
       ])),
       const SizedBox(height: 16),
     ],
@@ -171,11 +215,40 @@ class _Payments extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      finBanner('Fee Due — Term 2', '24,500', 'Due April 15, 2025 · Arjun Mehta'),
-      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 14), child: navyBtn('Pay Now Online')),
-      secLabel('Payment History'),
+      // Due banner — shows what's currently outstanding
+      finBanner('Outstanding — Term 2', '24,500', 'Due April 15, 2025 · Arjun Mehta'),
+      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 0), child: navyBtn('Pay Now Online')),
+      // Term 2 fee breakdown — unique content, not repeated below
+      secLabel('Term 2 Fee Breakdown'),
+      appCard(Column(children: [
+        ...[
+          ('Tuition Fee',   '₹24,500', false),
+          ('Activity Fee',  '₹3,200',  false),
+          ('Lab Fee',       '₹1,500',  false),
+          ('Exam Fee',      '₹1,800',  false),
+        ].map((item) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(item.$1, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1)),
+            Text(item.$2, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text1)),
+          ]),
+        )),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.amberLight,
+            borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(rLg), bottomRight: Radius.circular(rLg)),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('Total Due', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.amber)),
+            Text('₹31,000', style: GoogleFonts.dmSerifDisplay(fontSize: 17, color: AppColors.amber)),
+          ]),
+        ),
+      ])),
+      // Payment history — only previously paid invoices, not the current due one
+      secLabel('Past Payments'),
       appCard(invRows([
-        InvItem(id: 'INV-089', name: 'Term 2 Tuition',  type: 'Apr 2025', amount: '₹24,500', status: 'Due',  badgeBg: AppColors.amberLight, badgeColor: AppColors.amber),
         InvItem(id: 'INV-075', name: 'Term 1 Tuition',  type: 'Nov 2024', amount: '₹24,500', status: 'Paid', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
         InvItem(id: 'INV-062', name: 'Activity Fee',    type: 'Nov 2024', amount: '₹3,200',  status: 'Paid', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
         InvItem(id: 'INV-051', name: 'Examination Fee', type: 'Mar 2025', amount: '₹1,800',  status: 'Paid', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme.dart';
 import '../../models/role_config.dart';
+import '../../services/api_service.dart';
 import '../../widgets/builders.dart';
 import '../page_router.dart';
 
@@ -23,30 +24,48 @@ class AccountantPages extends StatelessWidget {
   }
 }
 
-class _Dashboard extends StatelessWidget {
+class _Dashboard extends StatefulWidget {
   const _Dashboard();
   @override
-  Widget build(BuildContext context) => Column(
+  State<_Dashboard> createState() => _DashboardState();
+}
+class _DashboardState extends State<_Dashboard> {
+  ProfileMe? _profile;
+  @override
+  void initState() {
+    super.initState();
+    if (TokenStore.hasTokens) {
+      ApiService().getMyProfile().then((p) {
+        if (mounted) setState(() => _profile = p);
+      }).catchError((_) {});
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    final cfg    = kRoles[UserRole.accountant]!;
+    final name   = _profile?.displayName ?? cfg.name;
+    final school = _profile?.schoolName  ?? 'Westfield Academy';
+    return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      heroPortrait(kRoles[UserRole.accountant]!.avatarAsset, 'Westfield Academy'),
-      profileInfo('Leon Burke', 'Finance Department', 'Staff ID: #WA-F-007'),
+      heroPortrait(cfg.avatarAsset, school),
+      profileInfo(name, 'Finance Department', cfg.idLabel),
       pageTitle('Dashboard', subtitle: 'Financial overview · Term 2'),
       finBanner('Collected — Term 2', '18.4L', '82% collection · 243 of 298 invoices paid'),
       statGrid([
-        StatItem(icon: Icons.receipt_long_rounded,    iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '298', label: 'Total Invoices', delta: 12),
-        StatItem(icon: Icons.task_alt_rounded,iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '243', label: 'Paid',           delta: 18),
-        StatItem(icon: Icons.access_time_rounded,      iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '41',  label: 'Pending',        delta: -5),
+        StatItem(icon: Icons.receipt_long_rounded, iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '298', label: 'Total Invoices', delta: 12),
+        StatItem(icon: Icons.task_alt_rounded,     iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '243', label: 'Paid',           delta: 18),
+        StatItem(icon: Icons.access_time_rounded,  iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '41',  label: 'Pending',        delta: -5),
         StatItem(icon: Icons.error_outline_rounded,iconBg: AppColors.redLight,   iconColor: AppColors.red,   val: '14',  label: 'Overdue',        delta: -3),
       ]),
       secLabel('Quick Actions'),
       actionGrid([
-        ActionItem(icon: Icons.note_add_rounded,    label: 'New Invoice',  bg: AppColors.redLight,   iconColor: AppColors.red),
-        ActionItem(icon: Icons.currency_rupee_rounded,  label: 'Fee Structure', bg: AppColors.amberLight, iconColor: AppColors.amber),
-        ActionItem(icon: Icons.sync_rounded,   label: 'Reconcile',    bg: AppColors.greenLight, iconColor: AppColors.green),
-        ActionItem(icon: Icons.edit_note_rounded,     label: 'Manual Pay',   bg: AppColors.blueLight,  iconColor: AppColors.blue),
-        ActionItem(icon: Icons.lock_open_rounded,     label: 'Authorize',    bg: AppColors.tealLight,  iconColor: AppColors.teal),
-        ActionItem(icon: Icons.pie_chart_rounded,     label: 'Reports',      bg: AppColors.blueLight,  iconColor: AppColors.blue),
+        ActionItem(icon: Icons.note_add_rounded,       label: 'New Invoice',  bg: AppColors.redLight,   iconColor: AppColors.red),
+        ActionItem(icon: Icons.currency_rupee_rounded, label: 'Fee Structure',bg: AppColors.amberLight, iconColor: AppColors.amber),
+        ActionItem(icon: Icons.sync_rounded,           label: 'Reconcile',    bg: AppColors.greenLight, iconColor: AppColors.green),
+        ActionItem(icon: Icons.edit_note_rounded,      label: 'Manual Pay',   bg: AppColors.blueLight,  iconColor: AppColors.blue),
+        ActionItem(icon: Icons.lock_open_rounded,      label: 'Authorize',    bg: AppColors.tealLight,  iconColor: AppColors.teal),
+        ActionItem(icon: Icons.pie_chart_rounded,      label: 'Reports',      bg: AppColors.blueLight,  iconColor: AppColors.blue),
       ]),
       secLabel('Recent Transactions'),
       appCard(invRows([
@@ -58,6 +77,7 @@ class _Dashboard extends StatelessWidget {
       const SizedBox(height: 16),
     ],
   );
+  }
 }
 
 class _Invoices extends StatelessWidget {
