@@ -62,6 +62,7 @@ class StatItem {
   });
 }
 
+// ── STAT GRID ──────────────────────────────────
 Widget statGrid(List<StatItem> items) => Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
       child: GridView.count(
@@ -70,8 +71,9 @@ Widget statGrid(List<StatItem> items) => Padding(
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        // childAspectRatio adjusted from 1.45 to 1.28 to provide more height
-        childAspectRatio: 1.28,
+        // LOWER childAspectRatio (e.g., 1.15) gives the cards more vertical room
+        // to accommodate wrapped text without triggering an overflow error.
+        childAspectRatio: 1.15, 
         children: items.map((i) => _StatCard(item: i)).toList(),
       ),
     );
@@ -87,11 +89,11 @@ class _StatCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(rLg),
           boxShadow: shadowSm,
         ),
-        // Optimized padding to prevent vertical squeeze
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+          // Changed to 'start' to ensure content doesn't jump if lines wrap
+          mainAxisAlignment: MainAxisAlignment.start, 
           children: [
             Container(
               width: 34, height: 34,
@@ -101,21 +103,28 @@ class _StatCard extends StatelessWidget {
               ),
               child: Center(child: Icon(item.icon, size: 16, color: item.iconColor)),
             ),
-            const SizedBox(height: 6),
-            // FittedBox ensures large numbers (e.g., 231ms) don't push content down
+            const SizedBox(height: 8),
             FittedBox(
               fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
               child: Text(item.val,
                   style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: AppColors.text1)),
             ),
-            Text(item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11, color: AppColors.text3, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 2),
+            // REMOVED maxLines: 1 and TextOverflow.ellipsis to allow wrapping
+            Text(
+              item.label,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11, 
+                color: AppColors.text3, 
+                fontWeight: FontWeight.w500,
+                height: 1.2, // Tighter line height for wrapped text
+              ),
+            ),
+            const Spacer(), // Pushes the delta row to the absolute bottom of the card
             if (item.delta != null)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: 4),
                 child: Row(children: [
                   Icon(
                     item.delta! > 0 ? Icons.trending_up_rounded
@@ -139,7 +148,6 @@ class _StatCard extends StatelessWidget {
         ),
       );
 }
-
 // ── ACTION GRID ────────────────────────────────
 class ActionItem {
   final IconData icon;
