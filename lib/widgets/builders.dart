@@ -44,7 +44,7 @@ Widget appCard(Widget child, {EdgeInsets? padding}) => Container(
       ),
     );
 
-// ── STAT GRID ──────────────────────────────────
+// ── STAT GRID (FIXED FOR OVERFLOW) ──────────────
 class StatItem {
   final IconData icon;
   final Color iconBg;
@@ -70,7 +70,8 @@ Widget statGrid(List<StatItem> items) => Padding(
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 1.45,
+        // childAspectRatio adjusted from 1.45 to 1.28 to provide more height
+        childAspectRatio: 1.28,
         children: items.map((i) => _StatCard(item: i)).toList(),
       ),
     );
@@ -86,9 +87,11 @@ class _StatCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(rLg),
           boxShadow: shadowSm,
         ),
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        // Optimized padding to prevent vertical squeeze
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               width: 34, height: 34,
@@ -98,15 +101,21 @@ class _StatCard extends StatelessWidget {
               ),
               child: Center(child: Icon(item.icon, size: 16, color: item.iconColor)),
             ),
-            const SizedBox(height: 10),
-            Text(item.val,
-                style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: AppColors.text1)),
+            const SizedBox(height: 6),
+            // FittedBox ensures large numbers (e.g., 231ms) don't push content down
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(item.val,
+                  style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: AppColors.text1)),
+            ),
             Text(item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(
                     fontSize: 11, color: AppColors.text3, fontWeight: FontWeight.w500)),
             if (item.delta != null)
               Padding(
-                padding: const EdgeInsets.only(top: 3),
+                padding: const EdgeInsets.only(top: 2),
                 child: Row(children: [
                   Icon(
                     item.delta! > 0 ? Icons.trending_up_rounded
@@ -185,6 +194,8 @@ class _ActionBtn extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Text(item.label,
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                       fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.text2)),
             ),
@@ -278,13 +289,11 @@ class _ProgressBarState extends State<ProgressBar> with SingleTickerProviderStat
                     fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text1)),
           ]),
           const SizedBox(height: 5),
-          // Track — explicit SizedBox forces full width so fill always starts at 0%
           SizedBox(
             height: 7,
             width: double.infinity,
             child: Stack(
               children: [
-                // Background track
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -293,7 +302,6 @@ class _ProgressBarState extends State<ProgressBar> with SingleTickerProviderStat
                     ),
                   ),
                 ),
-                // Animated fill — always starts from left edge (0%)
                 AnimatedBuilder(
                   animation: _anim,
                   builder: (_, __) => FractionallySizedBox(

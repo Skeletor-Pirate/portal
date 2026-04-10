@@ -1,5 +1,18 @@
 enum UserRole { global, admin, teacher, student, parent, accountant }
 
+/// Helper extension to handle role-to-string conversions for API and UI
+extension UserRoleExtension on UserRole {
+  String get apiValue => name.toLowerCase();
+  
+  String get displayLabel {
+    switch (this) {
+      case UserRole.global: return 'Global Admin';
+      case UserRole.admin: return 'School Admin';
+      default: return name[0].toUpperCase() + name.substring(1);
+    }
+  }
+}
+
 class RoleConfig {
   final String label;
   final String id;
