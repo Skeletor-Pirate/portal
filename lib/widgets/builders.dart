@@ -269,7 +269,7 @@ class _ProgressBarState extends State<ProgressBar> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Column(children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             Text(widget.label,
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text3)),
@@ -278,19 +278,36 @@ class _ProgressBarState extends State<ProgressBar> with SingleTickerProviderStat
                     fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text1)),
           ]),
           const SizedBox(height: 5),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(rFull),
-            child: Container(
-              height: 7,
-              color: AppColors.border,
-              child: AnimatedBuilder(
-                animation: _anim,
-                builder: (_, __) => FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: _anim.value * widget.value / 100,
-                  child: Container(decoration: BoxDecoration(gradient: widget.gradient)),
+          // Track — explicit SizedBox forces full width so fill always starts at 0%
+          SizedBox(
+            height: 7,
+            width: double.infinity,
+            child: Stack(
+              children: [
+                // Background track
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(rFull),
+                    ),
+                  ),
                 ),
-              ),
+                // Animated fill — always starts from left edge (0%)
+                AnimatedBuilder(
+                  animation: _anim,
+                  builder: (_, __) => FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: (_anim.value * widget.value / 100).clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: widget.gradient,
+                        borderRadius: BorderRadius.circular(rFull),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ]),

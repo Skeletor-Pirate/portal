@@ -62,8 +62,8 @@ class _ChildOverview extends StatelessWidget {
     children: [
       pageTitle('Child Overview', subtitle: 'Arjun Mehta · Grade 10A · Term 2'),
       statGrid([
-        StatItem(icon: Icons.bar_chart_rounded,      iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '88%', label: 'Avg Grade',     delta: 3),
-        StatItem(icon: Icons.fact_check_rounded,     iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '91%', label: 'Attendance',    delta: 1),
+        StatItem(icon: Icons.bar_chart_rounded,      iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '88%', label: 'Overall Avg · Term 2', delta: 3),
+        StatItem(icon: Icons.fact_check_rounded,     iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '91%', label: 'Attendance · Term 2', delta: 1),
         StatItem(icon: Icons.description_rounded,    iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '2',   label: 'Pending Tasks', delta: 0),
         StatItem(icon: Icons.emoji_events_rounded,   iconBg: AppColors.tealLight,  iconColor: AppColors.teal,  val: 'B+',  label: 'GPA Band',      delta: 0),
       ]),
@@ -130,7 +130,7 @@ class _Grades extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      pageTitle('Grades & Report Card', subtitle: 'Arjun Mehta'),
+      pageTitle('Grades & Report Card', subtitle: 'Arjun Mehta · Subject Averages · Term 2'),
       appCard(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
@@ -216,7 +216,7 @@ class _Payments extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       // Due banner — shows what's currently outstanding
-      finBanner('Outstanding — Term 2', '24,500', 'Due April 15, 2025 · Arjun Mehta'),
+      finBanner('Total Outstanding — Term 2', '31,000', 'Due April 15, 2025 · Arjun Mehta · 4 items'),
       Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 0), child: navyBtn('Pay Now Online')),
       // Term 2 fee breakdown — unique content, not repeated below
       secLabel('Term 2 Fee Breakdown'),
@@ -247,7 +247,7 @@ class _Payments extends StatelessWidget {
         ),
       ])),
       // Payment history — only previously paid invoices, not the current due one
-      secLabel('Past Payments'),
+      secLabel('Past Payments  ·  Previously settled invoices'),
       appCard(invRows([
         InvItem(id: 'INV-075', name: 'Term 1 Tuition',  type: 'Nov 2024', amount: '₹24,500', status: 'Paid', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
         InvItem(id: 'INV-062', name: 'Activity Fee',    type: 'Nov 2024', amount: '₹3,200',  status: 'Paid', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),

@@ -81,7 +81,7 @@ class _DashboardState extends State<_Dashboard> {
         StatItem(icon: Icons.school_rounded,      iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: _fmt(_studentCount), label: 'Students',   delta: 5),
         StatItem(icon: Icons.menu_book_rounded,   iconBg: AppColors.tealLight,  iconColor: AppColors.teal,  val: '$_teacherCount',    label: 'Teachers',   delta: 2),
         StatItem(icon: Icons.group_rounded,       iconBg: AppColors.greenLight, iconColor: AppColors.green, val: _fmt(_parentCount),  label: 'Parents',    delta: 0),
-        StatItem(icon: Icons.fact_check_rounded,  iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '94%',               label: 'Attendance (Term 2)', delta: 1),
+        StatItem(icon: Icons.fact_check_rounded,  iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '94%',               label: 'Student Attendance · Today', delta: 1),
       ]),
       secLabel('Quick Actions'),
       actionGrid([
@@ -387,9 +387,9 @@ class _Academic extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 8),
         child: Text('Academic progress — 2024–25', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.text4, fontWeight: FontWeight.w600)),
       ),
-      ProgressBar(label: 'Term 1  (Jan–Apr 2024)', value: 100, gradient: greenGrad()),
-      ProgressBar(label: 'Term 2  (May–Aug 2024)', value: 58,  gradient: blueGrad()),
-      ProgressBar(label: 'Term 3  (Sep–Dec 2024)', value: 0,   gradient: amberGrad()),
+      ProgressBar(label: 'Term 1  Jan–Apr 2024  (Completed)', value: 100, gradient: greenGrad()),
+      ProgressBar(label: 'Term 2  May–Aug 2024  (In Progress)', value: 58,  gradient: blueGrad()),
+      ProgressBar(label: 'Term 3  Sep–Dec 2024  (Upcoming)',   value: 0,   gradient: amberGrad()),
     ]))),
     secLabel('Past Years'),
     appCard(Column(children: [

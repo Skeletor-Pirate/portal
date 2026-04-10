@@ -300,9 +300,9 @@ class _Timetable extends StatelessWidget {
       ])),
       secLabel('Class Performance'),
       appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
-        ProgressBar(label: 'Science 10-A Attendance',  value: 94, gradient: greenGrad()),
-        ProgressBar(label: 'Physics 11-B Attendance',  value: 88, gradient: blueGrad()),
-        ProgressBar(label: 'Chemistry 12 Attendance',  value: 97, gradient: tealGrad()),
+        ProgressBar(label: 'Science 10-A  ·  Term 2 Attendance', value: 94, gradient: greenGrad()),
+        ProgressBar(label: 'Physics 11-B  ·  Term 2 Attendance', value: 88, gradient: blueGrad()),
+        ProgressBar(label: 'Chemistry 12  ·  Term 2 Attendance', value: 97, gradient: tealGrad()),
       ]))),
       const SizedBox(height: 16),
     ],
@@ -356,7 +356,7 @@ class _Analytics extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      pageTitle('Student Analytics', subtitle: 'Mid-Term · All Classes · Term 2'),
+      pageTitle('Student Analytics', subtitle: 'Mid-Term Exam · All Classes · Term 2  2024–25'),
       // Context banner
       Container(
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -381,9 +381,9 @@ class _Analytics extends StatelessWidget {
       ]),
       secLabel('Subject Averages — Mid-Term'),
       appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
-        ProgressBar(label: 'Physics 11-B',   value: 82, gradient: tealGrad()),
-        ProgressBar(label: 'Science 10-A',   value: 75, gradient: blueGrad()),
-        ProgressBar(label: 'Chemistry 12',   value: 68, gradient: amberGrad()),
+        ProgressBar(label: 'Physics 11-B  ·  Mid-Term Avg', value: 82, gradient: tealGrad()),
+        ProgressBar(label: 'Science 10-A  ·  Mid-Term Avg', value: 75, gradient: blueGrad()),
+        ProgressBar(label: 'Chemistry 12  ·  Mid-Term Avg', value: 68, gradient: amberGrad()),
       ]))),
       secLabel('AI Insights'),
       appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [

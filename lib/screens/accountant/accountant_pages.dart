@@ -250,10 +250,10 @@ class _Reports extends StatelessWidget {
       ]),
       secLabel('Collection by Grade'),
       appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
-        ProgressBar(label: 'Grade 9',  value: 88, gradient: blueGrad()),
-        ProgressBar(label: 'Grade 10', value: 94, gradient: greenGrad()),
-        ProgressBar(label: 'Grade 11', value: 78, gradient: amberGrad()),
-        ProgressBar(label: 'Grade 12', value: 71, gradient: tealGrad()),
+        ProgressBar(label: 'Grade 9   ·  Fee Collection Rate', value: 88, gradient: blueGrad()),
+        ProgressBar(label: 'Grade 10  ·  Fee Collection Rate', value: 94, gradient: greenGrad()),
+        ProgressBar(label: 'Grade 11  ·  Fee Collection Rate', value: 78, gradient: amberGrad()),
+        ProgressBar(label: 'Grade 12  ·  Fee Collection Rate', value: 71, gradient: tealGrad()),
       ]))),
       secLabel('Monthly Summary'),
       appCard(Column(children: [
