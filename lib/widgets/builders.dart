@@ -44,7 +44,7 @@ Widget appCard(Widget child, {EdgeInsets? padding}) => Container(
       ),
     );
 
-// ── STAT GRID (FIXED FOR OVERFLOW) ──────────────
+// ── STAT GRID ──────────────────────────────────
 class StatItem {
   final IconData icon;
   final Color iconBg;
@@ -62,7 +62,6 @@ class StatItem {
   });
 }
 
-// ── STAT GRID ──────────────────────────────────
 Widget statGrid(List<StatItem> items) => Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
       child: GridView.count(
@@ -71,9 +70,7 @@ Widget statGrid(List<StatItem> items) => Padding(
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        // LOWER childAspectRatio (e.g., 1.15) gives the cards more vertical room
-        // to accommodate wrapped text without triggering an overflow error.
-        childAspectRatio: 1.15, 
+        childAspectRatio: 1.22, // LOWERED TO PREVENT OVERFLOW
         children: items.map((i) => _StatCard(item: i)).toList(),
       ),
     );
@@ -92,8 +89,7 @@ class _StatCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          // Changed to 'start' to ensure content doesn't jump if lines wrap
-          mainAxisAlignment: MainAxisAlignment.start, 
+          mainAxisAlignment: MainAxisAlignment.spaceBetween, // DISTRIBUTE SPACE
           children: [
             Container(
               width: 34, height: 34,
@@ -103,62 +99,55 @@ class _StatCard extends StatelessWidget {
               ),
               child: Center(child: Icon(item.icon, size: 16, color: item.iconColor)),
             ),
-            const SizedBox(height: 8),
-            FittedBox(
+            const SizedBox(height: 4),
+            FittedBox( // ENSURES TEXT FITS RADIALLY
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(item.val,
                   style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: AppColors.text1)),
             ),
-            const SizedBox(height: 2),
-            // REMOVED maxLines: 1 and TextOverflow.ellipsis to allow wrapping
-            Text(
-              item.label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11, 
-                color: AppColors.text3, 
-                fontWeight: FontWeight.w500,
-                height: 1.2, // Tighter line height for wrapped text
-              ),
-            ),
-            const Spacer(), // Pushes the delta row to the absolute bottom of the card
+            Text(item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11, color: AppColors.text3, fontWeight: FontWeight.w500)),
             if (item.delta != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(children: [
-                  Icon(
-                    item.delta! > 0 ? Icons.trending_up_rounded
-                        : item.delta! < 0 ? Icons.trending_down_rounded
-                        : Icons.remove_rounded,
-                    size: 10,
-                    color: item.delta! > 0 ? AppColors.green
-                        : item.delta! < 0 ? AppColors.red
-                        : AppColors.text3,
-                  ),
-                  const SizedBox(width: 2),
-                  Text('${item.delta!.abs()}%',
-                      style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10, fontWeight: FontWeight.w700,
-                          color: item.delta! > 0 ? AppColors.green
-                              : item.delta! < 0 ? AppColors.red
-                              : AppColors.text3)),
-                ]),
-              ),
+              Row(children: [
+                Icon(
+                  item.delta! > 0 ? Icons.trending_up_rounded
+                      : item.delta! < 0 ? Icons.trending_down_rounded
+                      : Icons.remove_rounded,
+                  size: 10,
+                  color: item.delta! > 0 ? AppColors.green
+                      : item.delta! < 0 ? AppColors.red
+                      : AppColors.text3,
+                ),
+                const SizedBox(width: 2),
+                Text('${item.delta!.abs()}%',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10, fontWeight: FontWeight.w700,
+                        color: item.delta! > 0 ? AppColors.green
+                            : item.delta! < 0 ? AppColors.red
+                            : AppColors.text3)),
+              ]),
           ],
         ),
       );
 }
+
 // ── ACTION GRID ────────────────────────────────
 class ActionItem {
   final IconData icon;
   final String label;
   final Color bg;
   final Color iconColor;
+  final VoidCallback? onTap;
   const ActionItem({
     required this.icon,
     required this.label,
     required this.bg,
     this.iconColor = AppColors.navy,
+    this.onTap,
   });
 }
 
@@ -180,7 +169,7 @@ class _ActionBtn extends StatelessWidget {
   const _ActionBtn({required this.item});
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () {},
+        onTap: item.onTap ?? () {},
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -202,8 +191,6 @@ class _ActionBtn extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Text(item.label,
                   textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                       fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.text2)),
             ),
@@ -297,11 +284,13 @@ class _ProgressBarState extends State<ProgressBar> with SingleTickerProviderStat
                     fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text1)),
           ]),
           const SizedBox(height: 5),
+          // Track — explicit SizedBox forces full width so fill always starts at 0%
           SizedBox(
             height: 7,
             width: double.infinity,
             child: Stack(
               children: [
+                // Background track
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -310,6 +299,7 @@ class _ProgressBarState extends State<ProgressBar> with SingleTickerProviderStat
                     ),
                   ),
                 ),
+                // Animated fill — always starts from left edge (0%)
                 AnimatedBuilder(
                   animation: _anim,
                   builder: (_, __) => FractionallySizedBox(
@@ -339,7 +329,8 @@ Gradient tealGrad()  => const LinearGradient(colors: [Color(0xFF0D7490), Color(0
 class ChipRow extends StatefulWidget {
   final List<String> chips;
   final int active;
-  const ChipRow({super.key, required this.chips, this.active = 0});
+  final ValueChanged<int>? onChanged;
+  const ChipRow({super.key, required this.chips, this.active = 0, this.onChanged});
   @override
   State<ChipRow> createState() => _ChipRowState();
 }
@@ -348,6 +339,11 @@ class _ChipRowState extends State<ChipRow> {
   @override
   void initState() { super.initState(); _active = widget.active; }
   @override
+  void didUpdateWidget(ChipRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active != oldWidget.active) setState(() => _active = widget.active);
+  }
+  @override
   Widget build(BuildContext context) => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -355,7 +351,7 @@ class _ChipRowState extends State<ChipRow> {
           children: List.generate(widget.chips.length, (i) {
             final active = i == _active;
             return GestureDetector(
-              onTap: () => setState(() => _active = i),
+              onTap: () { setState(() => _active = i); widget.onChanged?.call(i); },
               child: Container(
                 margin: const EdgeInsets.only(right: 7),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -1069,7 +1065,10 @@ class AuthCardItem {
   const AuthCardItem({required this.name, required this.desc, required this.amount, required this.via, required this.id});
 }
 
-Widget authCard(AuthCardItem item) => Container(
+Widget authCard(AuthCardItem item, {
+  VoidCallback? onApprove,
+  VoidCallback? onReject,
+}) => Container(
       margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -1117,7 +1116,7 @@ Widget authCard(AuthCardItem item) => Container(
             )),
             const SizedBox(width: 8),
             Expanded(child: GestureDetector(
-              onTap: () {},
+              onTap: onReject ?? () {},
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(

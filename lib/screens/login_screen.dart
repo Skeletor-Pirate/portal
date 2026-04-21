@@ -6,6 +6,7 @@ import '../models/role_config.dart';
 import '../services/api_service.dart';
 import '../services/dev_auth.dart';
 import 'app_screen.dart';
+import 'api_explorer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LANDING SCREEN
@@ -19,7 +20,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _showRoles = false;
-  bool _showDevRoles = false;
+  bool _showDevRoles = false;     // ← dev bypass role picker
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       extendBodyBehindAppBar: true,
+      // ── DEV floating badge ──────────────────────────────────────────────
       floatingActionButton: _DevFab(onTap: () => setState(() {
         _showDevRoles = !_showDevRoles;
         _showRoles = false;
@@ -86,6 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ]),
             ),
 
+            // ── decorative mockup card ────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -149,7 +152,57 @@ class _LoginScreenState extends State<LoginScreen> {
               ]),
             ),
 
+            const SizedBox(height: 10),
+
+            // ── Register + API Explorer ────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(children: [
+                Expanded(child: GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      border: Border.all(color: AppColors.border2, width: 1.5),
+                      borderRadius: BorderRadius.circular(rMd),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const Icon(Icons.person_add_rounded, size: 15, color: AppColors.navy),
+                      const SizedBox(width: 6),
+                      Text("Register", style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.navy)),
+                    ]),
+                  ),
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ApiExplorerScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A2E),
+                      border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.5), width: 1.5),
+                      borderRadius: BorderRadius.circular(rMd),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Container(width: 5, height: 5,
+                          decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
+                      const SizedBox(width: 6),
+                      Text("API Explorer", style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00FF88))),
+                    ]),
+                  ),
+                )),
+              ]),
+            ),
+
+            // ── role selector (normal login) ──────────────────────────────
             if (_showRoles) _RoleSelector(onRole: _enterRole),
+
+            // ── dev role selector ─────────────────────────────────────────
             if (_showDevRoles) _DevRoleSelector(onRole: _enterDevRole),
 
             SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
@@ -165,7 +218,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _enterDevRole(UserRole role) {
     DevAuth.activate();
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => AppScreen(role: role)));
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => AppScreen(role: role),
+    ));
   }
 
   Widget _heroHeader(BuildContext context) {
@@ -195,7 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DEV HELPERS
+// DEV FLOATING ACTION BUTTON
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DevFab extends StatelessWidget {
@@ -224,6 +279,10 @@ class _DevFab extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DEV ROLE SELECTOR — skips API, goes straight to AppScreen
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _DevRoleSelector extends StatelessWidget {
   final void Function(UserRole) onRole;
   const _DevRoleSelector({required this.onRole});
@@ -231,12 +290,12 @@ class _DevRoleSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roles = [
-      (_DevRoleCard(icon: Icons.home_work_rounded, label: "Admin", bg: const Color(0xFFEBEEFF), iconColor: AppColors.blue), UserRole.admin),
-      (_DevRoleCard(icon: Icons.menu_book_rounded, label: "Teacher", bg: AppColors.tealLight, iconColor: AppColors.teal), UserRole.teacher),
-      (_DevRoleCard(icon: Icons.school_rounded, label: "Student", bg: AppColors.greenLight, iconColor: AppColors.green), UserRole.student),
-      (_DevRoleCard(icon: Icons.people_rounded, label: "Parent", bg: AppColors.amberLight, iconColor: AppColors.amber), UserRole.parent),
-      (_DevRoleCard(icon: Icons.credit_card_rounded, label: "Accountant", bg: AppColors.redLight, iconColor: AppColors.red), UserRole.accountant),
-      (_DevRoleCard(icon: Icons.language_rounded, label: "Global", bg: const Color(0xFFEDE9FF), iconColor: const Color(0xFF5B3FD8)), UserRole.global),
+      (_DevRoleCard(icon: Icons.home_work_rounded,    label: "School Admin",  name: "Priya Sharma", bg: const Color(0xFFEBEEFF), iconColor: AppColors.blue),      UserRole.admin),
+      (_DevRoleCard(icon: Icons.menu_book_rounded,    label: "Teacher",       name: "Mr. Hoang",    bg: AppColors.tealLight,    iconColor: AppColors.teal),        UserRole.teacher),
+      (_DevRoleCard(icon: Icons.school_rounded,       label: "Student",       name: "Alex Rivers",  bg: AppColors.greenLight,   iconColor: AppColors.green),       UserRole.student),
+      (_DevRoleCard(icon: Icons.people_rounded,       label: "Parent",        name: "Raj Mehta",    bg: AppColors.amberLight,   iconColor: AppColors.amber),       UserRole.parent),
+      (_DevRoleCard(icon: Icons.credit_card_rounded,  label: "Accountant",    name: "Sarah Chen",   bg: AppColors.redLight,     iconColor: AppColors.red),         UserRole.accountant),
+      (_DevRoleCard(icon: Icons.language_rounded,     label: "Global Admin",  name: "Jordan Wells", bg: const Color(0xFFEDE9FF),iconColor: const Color(0xFF5B3FD8)), UserRole.global),
     ];
 
     return Container(
@@ -245,29 +304,84 @@ class _DevRoleSelector extends StatelessWidget {
         color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(rXl),
         border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.3), width: 1.5),
+        boxShadow: [BoxShadow(color: const Color(0xFF00FF88).withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 8))],
       ),
-      child: GridView.count(
-        crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12), crossAxisSpacing: 8, mainAxisSpacing: 8,
-        children: roles.map((r) => GestureDetector(onTap: () => onRole(r.$2), child: r.$1)).toList(),
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Header ─────────────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.04),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(rXl)),
+            border: Border(bottom: BorderSide(color: const Color(0xFF00FF88).withOpacity(0.15))),
+          ),
+          child: Row(children: [
+            Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            Text("DEV MODE — Pick a role to preview",
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF00FF88), letterSpacing: 0.5)),
+            const Spacer(),
+            Text("No API calls", style: GoogleFonts.plusJakartaSans(fontSize: 9, color: Colors.white.withOpacity(0.3))),
+          ]),
+        ),
+
+        // ── Disclaimer ─────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(
+            "Uses dummy data only. Backend is bypassed. Remove DevAuth before release.",
+            style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white.withOpacity(0.35), height: 1.5),
+          ),
+        ),
+
+        // ── Role grid ──────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+          child: GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 0.88,
+            children: roles.map((r) => GestureDetector(onTap: () => onRole(r.$2), child: r.$1)).toList(),
+          ),
+        ),
+      ]),
     );
   }
 }
 
 class _DevRoleCard extends StatelessWidget {
-  final IconData icon; final String label; final Color bg, iconColor;
-  const _DevRoleCard({required this.icon, required this.label, required this.bg, required this.iconColor});
+  final IconData icon;
+  final String label, name;
+  final Color bg, iconColor;
+  const _DevRoleCard({required this.icon, required this.label, required this.name, required this.bg, required this.iconColor});
+
   @override
   Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(rLg)),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(rLg),
+      border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+    ),
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(icon, size: 20, color: iconColor),
-      const SizedBox(height: 4),
-      Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 9, color: Colors.white)),
+      Container(width: 40, height: 40,
+          decoration: BoxDecoration(color: bg.withOpacity(0.85), borderRadius: BorderRadius.circular(rMd)),
+          child: Icon(icon, size: 21, color: iconColor)),
+      const SizedBox(height: 7),
+      Text(label, textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.9))),
+      const SizedBox(height: 2),
+      Text(name, textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(fontSize: 9, color: Colors.white.withOpacity(0.4))),
     ]),
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NORMAL ROLE SELECTOR (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _RoleSelector extends StatelessWidget {
   final void Function(UserRole) onRole;
@@ -275,41 +389,57 @@ class _RoleSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roles = [
-      (_RoleBtn(icon: Icons.home_work_rounded, label: "School Admin", bg: const Color(0xFFEBEEFF), iconColor: AppColors.blue), UserRole.admin),
-      (_RoleBtn(icon: Icons.menu_book_rounded, label: "Teacher", bg: AppColors.tealLight, iconColor: AppColors.teal), UserRole.teacher),
-      (_RoleBtn(icon: Icons.school_rounded, label: "Student", bg: AppColors.greenLight, iconColor: AppColors.green), UserRole.student),
-      (_RoleBtn(icon: Icons.people_rounded, label: "Parent", bg: AppColors.amberLight, iconColor: AppColors.amber), UserRole.parent),
-      (_RoleBtn(icon: Icons.credit_card_rounded, label: "Accountant", bg: AppColors.redLight, iconColor: AppColors.red), UserRole.accountant),
-      (_RoleBtn(icon: Icons.language_rounded, label: "Global Admin", bg: const Color(0xFFEDE9FF), iconColor: const Color(0xFF5B3FD8)), UserRole.global),
+      (_RoleBtn(icon: Icons.home_work_rounded,   label: "School Admin", bg: const Color(0xFFEBEEFF), iconColor: AppColors.blue),      UserRole.admin),
+      (_RoleBtn(icon: Icons.menu_book_rounded,   label: "Teacher",      bg: AppColors.tealLight,    iconColor: AppColors.teal),        UserRole.teacher),
+      (_RoleBtn(icon: Icons.school_rounded,      label: "Student",      bg: AppColors.greenLight,   iconColor: AppColors.green),       UserRole.student),
+      (_RoleBtn(icon: Icons.people_rounded,      label: "Parent",       bg: AppColors.amberLight,   iconColor: AppColors.amber),       UserRole.parent),
+      (_RoleBtn(icon: Icons.credit_card_rounded, label: "Accountant",   bg: AppColors.redLight,     iconColor: AppColors.red),         UserRole.accountant),
+      (_RoleBtn(icon: Icons.language_rounded,    label: "Global Admin", bg: const Color(0xFFEDE9FF),iconColor: const Color(0xFF5B3FD8)), UserRole.global),
     ];
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      decoration: const BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(rXl))),
-      child: GridView.count(
-        crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.9,
-        children: roles.map((r) => GestureDetector(onTap: () => onRole(r.$2), child: r.$1)).toList(),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(rXl)),
+        boxShadow: [BoxShadow(color: Color(0x142D1B8E), blurRadius: 24, offset: Offset(0, -6))],
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Center(child: Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: AppColors.border2, borderRadius: BorderRadius.circular(rFull)))),
+        Text("SELECT YOUR PORTAL", style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppColors.text4)),
+        const SizedBox(height: 14),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 0.9,
+          children: roles.map((r) => GestureDetector(onTap: () => onRole(r.$2), child: r.$1)).toList(),
+        ),
+      ]),
     );
   }
 }
 
 class _RoleBtn extends StatelessWidget {
-  final IconData icon; final String label; final Color bg, iconColor;
+  final IconData icon;
+  final String label;
+  final Color bg, iconColor;
   const _RoleBtn({required this.icon, required this.label, required this.bg, required this.iconColor});
   @override
   Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rLg)),
+    decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rLg), boxShadow: shadowSm),
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(rMd)), child: Icon(icon, size: 22, color: iconColor)),
-      const SizedBox(height: 8),
-      Text(label, textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.text2)),
+      Container(width: 42, height: 42, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: AppColors.border, width: 1.5)), child: Icon(icon, size: 22, color: iconColor)),
+      const SizedBox(height: 9),
+      Text(label, textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.text2)),
     ]),
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// INTEGRATED LOGIN & REGISTER FORM
+// LOGIN FORM SCREEN (real API — unchanged except dev banner addition)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class LoginFormScreen extends StatefulWidget {
@@ -322,53 +452,37 @@ class LoginFormScreen extends StatefulWidget {
 class _LoginFormScreenState extends State<LoginFormScreen> {
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
-  bool _isRegistering = false;
   String? _error;
 
   RoleConfig get _cfg => kRoles[widget.role]!;
 
   @override
-  void dispose() { 
-    _usernameCtrl.dispose(); 
-    _passwordCtrl.dispose(); 
-    _emailCtrl.dispose();
-    super.dispose(); 
-  }
+  void dispose() { _usernameCtrl.dispose(); _passwordCtrl.dispose(); super.dispose(); }
 
-  Future<void> _handleAuth() async {
+  Future<void> _login() async {
     final username = _usernameCtrl.text.trim();
     final password = _passwordCtrl.text;
-    final email = _emailCtrl.text.trim();
-
-    if (username.isEmpty || password.isEmpty || (_isRegistering && email.isEmpty)) {
-      setState(() => _error = "Please fill in all fields.");
+    if (username.isEmpty || password.isEmpty) {
+      setState(() => _error = "Please enter your username and password.");
       return;
     }
-
     setState(() { _loading = true; _error = null; });
     try {
-      if (_isRegistering) {
-        await ApiService().register(username, email, password, widget.role.name);
-        // Auto-login after successful registration
-        await ApiService().login(username, password);
-      } else {
-        await ApiService().login(username, password);
-      }
-      
+      await ApiService().login(username, password);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AppScreen(role: widget.role)));
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
-      setState(() => _error = "Could not reach the server.");
+      setState(() => _error = "Could not reach the server. Check your connection.");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  /// Dev bypass directly from the login form — no credentials needed
   void _devBypass() {
     DevAuth.activate();
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AppScreen(role: widget.role)));
@@ -377,74 +491,130 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Column(children: [
+        // ── Top bar ────────────────────────────────────────────────────────
         Container(
           padding: EdgeInsets.fromLTRB(16, topPad + 12, 16, 18),
-          decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.gradA, AppColors.gradB])),
+          decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.gradA, AppColors.gradB])),
           child: Row(children: [
-            IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18), onPressed: () => Navigator.pop(context)),
-            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(rMd), border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5)), child: const Icon(Icons.arrow_back_rounded, size: 16, color: Colors.white)),
+            ),
+            const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_isRegistering ? "Register" : "Sign In", style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: Colors.white)),
-              Text(_cfg.label, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white70)),
+              Text("Sign In", style: GoogleFonts.dmSerifDisplay(fontSize: 20, color: Colors.white)),
+              Text(_cfg.label, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white.withOpacity(0.65))),
             ])),
-            TextButton(onPressed: _devBypass, child: Text("DEV", style: GoogleFonts.plusJakartaSans(color: const Color(0xFF00FF88), fontWeight: FontWeight.bold))),
+            // ── DEV shortcut on top bar ────────────────────────────────────
+            GestureDetector(
+              onTap: _devBypass,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A2E),
+                  borderRadius: BorderRadius.circular(rSm),
+                  border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.6), width: 1.5),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
+                  const SizedBox(width: 5),
+                  Text("DEV", style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF00FF88), letterSpacing: 1.0)),
+                ]),
+              ),
+            ),
           ]),
         ),
 
         Expanded(child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(20, 28, 20, 20 + bottomPad),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("Username", style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text3)),
-            const SizedBox(height: 8),
-            TextField(controller: _usernameCtrl, decoration: _inputDec("Username", Icons.person_outline)),
+            // ── Role badge ─────────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: AppColors.blueLight, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: AppColors.border, width: 1.5)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.verified_rounded, size: 14, color: AppColors.blue), const SizedBox(width: 6),
+                Text("Logging in as: ${_cfg.label}", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.blue)),
+              ]),
+            ),
 
-            if (_isRegistering) ...[
-              const SizedBox(height: 20),
-              Text("Email Address", style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text3)),
-              const SizedBox(height: 8),
-              TextField(controller: _emailCtrl, decoration: _inputDec("Email", Icons.email_outlined)),
+            const SizedBox(height: 28),
+
+            // ── Username ───────────────────────────────────────────────────
+            Text("Username", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text3)),
+            const SizedBox(height: 6),
+            TextField(controller: _usernameCtrl, keyboardType: TextInputType.emailAddress, textInputAction: TextInputAction.next, style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.text1), decoration: _inputDec("Enter your username", Icons.person_outline_rounded)),
+
+            const SizedBox(height: 16),
+
+            // ── Password ───────────────────────────────────────────────────
+            Text("Password", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text3)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _passwordCtrl, obscureText: _obscure, textInputAction: TextInputAction.done, onSubmitted: (_) => _login(),
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.text1),
+              decoration: _inputDec("Enter your password", Icons.lock_outline_rounded).copyWith(
+                suffixIcon: GestureDetector(onTap: () => setState(() => _obscure = !_obscure), child: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18, color: AppColors.text4)),
+              ),
+            ),
+
+            // ── Error ──────────────────────────────────────────────────────
+            if (_error != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: const Color(0xFFFCA5A5), width: 1.5)),
+                child: Row(children: [
+                  const Icon(Icons.error_outline_rounded, size: 14, color: AppColors.red), const SizedBox(width: 8),
+                  Expanded(child: Text(_error!, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.red, fontWeight: FontWeight.w500))),
+                ]),
+              ),
             ],
 
-            const SizedBox(height: 20),
-            Text("Password", style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text3)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _passwordCtrl, obscureText: _obscure,
-              decoration: _inputDec("Password", Icons.lock_outline).copyWith(
-                suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscure = !_obscure)),
+            const SizedBox(height: 28),
+
+            // ── Sign In button (real API) ───────────────────────────────────
+            GestureDetector(
+              onTap: _loading ? null : _login,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.gradA, AppColors.gradC], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowMd),
+                child: Center(child: _loading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text("Sign In", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white))),
               ),
             ),
 
-            if (_error != null) Padding(padding: const EdgeInsets.only(top: 16), child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12))),
+            const SizedBox(height: 12),
 
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _handleAuth,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.navy, padding: const EdgeInsets.all(16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: _loading ? const CircularProgressIndicator(color: Colors.white) : Text(_isRegistering ? "CREATE ACCOUNT" : "SIGN IN", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-            Center(
-              child: GestureDetector(
-                onTap: () => setState(() { _isRegistering = !_isRegistering; _error = null; }),
-                child: RichText(
-                  text: TextSpan(
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2),
-                    children: [
-                      TextSpan(text: _isRegistering ? "Already have an account? " : "Don't have an account? "),
-                      TextSpan(text: _isRegistering ? "Sign In" : "Register", style: const TextStyle(color: AppColors.blue, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+            // ── Dev bypass button ─────────────────────────────────────────
+            GestureDetector(
+              onTap: _devBypass,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A2E),
+                  borderRadius: BorderRadius.circular(rMd),
+                  border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.4), width: 1.5),
                 ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
+                  const SizedBox(width: 8),
+                  Text("Dev Login — Skip API, use dummy data",
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00FF88))),
+                ]),
               ),
             ),
+
+            const SizedBox(height: 16),
+            Center(child: Text("Use credentials provided by your school administrator.", textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text4, height: 1.5))),
           ]),
         )),
       ]),
@@ -452,8 +622,13 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
   }
 
   InputDecoration _inputDec(String hint, IconData icon) => InputDecoration(
-    hintText: hint, prefixIcon: Icon(icon, size: 20),
-    filled: true, fillColor: Colors.white,
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+    hintText: hint,
+    hintStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text4),
+    prefixIcon: Icon(icon, size: 18, color: AppColors.text4),
+    filled: true, fillColor: AppColors.surface,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(rMd), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(rMd), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(rMd), borderSide: const BorderSide(color: AppColors.blue, width: 1.5)),
   );
 }

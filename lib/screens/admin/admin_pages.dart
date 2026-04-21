@@ -4,6 +4,7 @@ import '../../theme.dart';
 import '../../models/role_config.dart';
 import '../../services/api_service.dart';
 import '../../widgets/builders.dart';
+import '../../widgets/interactive.dart';
 import '../page_router.dart';
 
 class AdminPages extends StatelessWidget {
@@ -85,12 +86,12 @@ class _DashboardState extends State<_Dashboard> {
       ]),
       secLabel('Quick Actions'),
       actionGrid([
-        ActionItem(icon: Icons.person_add_rounded,     label: 'Add Student',  bg: AppColors.blueLight,  iconColor: AppColors.blue),
-        ActionItem(icon: Icons.add_card_rounded,       label: 'Add Teacher',  bg: AppColors.tealLight,  iconColor: AppColors.teal),
-        ActionItem(icon: Icons.how_to_reg_rounded,     label: 'Add Parent',   bg: AppColors.greenLight, iconColor: AppColors.green),
-        ActionItem(icon: Icons.verified_user_rounded,  label: 'Roles',        bg: AppColors.amberLight, iconColor: AppColors.amber),
-        ActionItem(icon: Icons.calendar_month_rounded, label: 'Academic Yr',  bg: AppColors.blueLight,  iconColor: AppColors.blue),
-        ActionItem(icon: Icons.star_rounded,           label: 'Grading',      bg: AppColors.redLight,   iconColor: AppColors.red),
+        ActionItem(icon: Icons.person_add_rounded,     label: 'Add Student',  bg: AppColors.blueLight,  iconColor: AppColors.blue,  onTap: () => showAddStudent(context)),
+        ActionItem(icon: Icons.add_card_rounded,       label: 'Add Teacher',  bg: AppColors.tealLight,  iconColor: AppColors.teal,  onTap: () => showAddTeacher(context)),
+        ActionItem(icon: Icons.how_to_reg_rounded,     label: 'Add Parent',   bg: AppColors.greenLight, iconColor: AppColors.green, onTap: () => showAddParent(context)),
+        ActionItem(icon: Icons.verified_user_rounded,  label: 'Roles',        bg: AppColors.amberLight, iconColor: AppColors.amber, onTap: () => showToast(context, 'Opening Roles & Permissions…')),
+        ActionItem(icon: Icons.calendar_month_rounded, label: 'Academic Yr',  bg: AppColors.blueLight,  iconColor: AppColors.blue,  onTap: () => showEnrolStudent(context)),
+        ActionItem(icon: Icons.trending_up_rounded,    label: 'Promote',      bg: AppColors.tealLight,  iconColor: AppColors.teal,  onTap: () => showBulkPromote(context)),
       ]),
       secLabel('Recent Activity'),
       appCard(Padding(padding: const EdgeInsets.all(16), child: timeline([
@@ -211,7 +212,7 @@ class _StudentsState extends State<_Students> {
             );
           }),
       ])),
-      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('+ Create Student Profile')),
+      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('+ Create Student Profile', onTap: () => showAddStudent(context))),
       const SizedBox(height: 16),
     ]);
   }
@@ -277,7 +278,7 @@ class _TeachersState extends State<_Teachers> {
           badgeBg: t.$3, badgeColor: t.$4,
         )),
     ])),
-    Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('+ Create Teacher Profile')),
+    Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('+ Create Teacher Profile', onTap: () => showAddTeacher(context))),
     const SizedBox(height: 16),
   ]);
 }
@@ -339,7 +340,7 @@ class _ParentsState extends State<_Parents> {
           badgeText: 'Active', badgeBg: AppColors.greenLight, badgeColor: AppColors.green,
         )),
     ])),
-    Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('+ Add Parent')),
+    Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('+ Add Parent', onTap: () => showAddParent(context))),
     const SizedBox(height: 16),
   ]);
 }

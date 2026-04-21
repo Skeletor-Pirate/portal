@@ -4,7 +4,11 @@ import '../../theme.dart';
 import '../../models/role_config.dart';
 import '../../services/api_service.dart';
 import '../../widgets/builders.dart';
+import '../../widgets/interactive.dart';
 import '../page_router.dart';
+
+// lib/screens/accountant/accountant_pages.dart
+// ... [Imports]
 
 class AccountantPages extends StatelessWidget {
   final String page;
@@ -19,10 +23,12 @@ class AccountantPages extends StatelessWidget {
       case 'manualpay':    return const _ManualPay();
       case 'authorize':    return const _Authorize();
       case 'reports':      return const _Reports();
-      default:             return defaultPage(page);
+      default:             return defaultPage(page); // ROUTER FALLBACK
     }
   }
 }
+
+// ... [Dashboards will now use fixed builders.dart statGrid]
 
 class _Dashboard extends StatefulWidget {
   const _Dashboard();
@@ -60,12 +66,12 @@ class _DashboardState extends State<_Dashboard> {
       ]),
       secLabel('Quick Actions'),
       actionGrid([
-        ActionItem(icon: Icons.note_add_rounded,       label: 'New Invoice',  bg: AppColors.redLight,   iconColor: AppColors.red),
-        ActionItem(icon: Icons.currency_rupee_rounded, label: 'Fee Structure',bg: AppColors.amberLight, iconColor: AppColors.amber),
-        ActionItem(icon: Icons.sync_rounded,           label: 'Reconcile',    bg: AppColors.greenLight, iconColor: AppColors.green),
-        ActionItem(icon: Icons.edit_note_rounded,      label: 'Manual Pay',   bg: AppColors.blueLight,  iconColor: AppColors.blue),
-        ActionItem(icon: Icons.lock_open_rounded,      label: 'Authorize',    bg: AppColors.tealLight,  iconColor: AppColors.teal),
-        ActionItem(icon: Icons.pie_chart_rounded,      label: 'Reports',      bg: AppColors.blueLight,  iconColor: AppColors.blue),
+        ActionItem(icon: Icons.note_add_rounded,       label: 'New Invoice',  bg: AppColors.redLight,   iconColor: AppColors.red,   onTap: () => showGenerateInvoice(context)),
+        ActionItem(icon: Icons.currency_rupee_rounded, label: 'Fee Structure',bg: AppColors.amberLight, iconColor: AppColors.amber, onTap: () => showToast(context, 'Opening Fee Structure…')),
+        ActionItem(icon: Icons.sync_rounded,           label: 'Reconcile',    bg: AppColors.greenLight, iconColor: AppColors.green, onTap: () => showToast(context, 'Opening Reconciliation…')),
+        ActionItem(icon: Icons.edit_note_rounded,      label: 'Manual Pay',   bg: AppColors.blueLight,  iconColor: AppColors.blue,  onTap: () => showManualPayment(context)),
+        ActionItem(icon: Icons.lock_open_rounded,      label: 'Authorize',    bg: AppColors.tealLight,  iconColor: AppColors.teal,  onTap: () => showToast(context, 'Opening Authorize Transactions…')),
+        ActionItem(icon: Icons.pie_chart_rounded,      label: 'Reports',      bg: AppColors.blueLight,  iconColor: AppColors.blue,  onTap: () => showFinancialReport(context)),
       ]),
       secLabel('Recent Transactions'),
       appCard(invRows([
@@ -96,7 +102,7 @@ class _Invoices extends StatelessWidget {
         InvItem(id: 'INV-086', name: 'Sofia Rodriguez', type: 'Exam Fee · Mar 20',      amount: '₹1,800',  status: 'Overdue', badgeBg: AppColors.redLight,   badgeColor: AppColors.red),
         InvItem(id: 'INV-085', name: 'Zara Williams',   type: 'Term 2 Tuition · Apr 1', amount: '₹24,500', status: 'Paid',    badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
       ])),
-      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('+ Generate Invoice')),
+      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8), child: navyBtn('+ Generate Invoice', onTap: () => showGenerateInvoice(context))),
       const SizedBox(height: 16),
     ],
   );
@@ -229,13 +235,19 @@ class _Authorize extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       pageTitle('Authorize Transactions', subtitle: 'Review pending payments'),
-      authCard(const AuthCardItem(name: 'Priya Mehta', desc: 'Term 2 Online Payment', amount: '₹24,500', via: 'Razorpay', id: 'PAY-4421')),
-      authCard(const AuthCardItem(name: 'John Carter', desc: 'Activity Fee',           amount: '₹3,200',  via: 'Stripe',   id: 'PAY-4420')),
-      authCard(const AuthCardItem(name: 'Aiko Tanaka', desc: 'Exam Fee',               amount: '₹1,800',  via: 'Razorpay', id: 'PAY-4419')),
+      _authCardWithActions(context, const AuthCardItem(name: 'Priya Mehta', desc: 'Term 2 Online Payment', amount: '₹24,500', via: 'Razorpay', id: 'PAY-4421')),
+      _authCardWithActions(context, const AuthCardItem(name: 'John Carter', desc: 'Activity Fee',           amount: '₹3,200',  via: 'Stripe',   id: 'PAY-4420')),
+      _authCardWithActions(context, const AuthCardItem(name: 'Aiko Tanaka', desc: 'Exam Fee',               amount: '₹1,800',  via: 'Razorpay', id: 'PAY-4419')),
       const SizedBox(height: 16),
     ],
   );
 }
+
+Widget _authCardWithActions(BuildContext context, AuthCardItem item) =>
+    authCard(item,
+      onApprove: () => showApproveTransaction(context, name: item.name, amount: item.amount, id: item.id),
+      onReject:  () => showRejectTransaction(context,  name: item.name, id: item.id),
+    );
 
 class _Reports extends StatelessWidget {
   const _Reports();
@@ -255,6 +267,8 @@ class _Reports extends StatelessWidget {
         ProgressBar(label: 'Grade 11  ·  Fee Collection Rate', value: 78, gradient: amberGrad()),
         ProgressBar(label: 'Grade 12  ·  Fee Collection Rate', value: 71, gradient: tealGrad()),
       ]))),
+      Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+          child: navyBtn('View Full Report', onTap: () => showFinancialReport(context))),
       secLabel('Monthly Summary'),
       appCard(Column(children: [
         ...[
