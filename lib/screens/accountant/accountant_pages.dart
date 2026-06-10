@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme.dart';
 import '../../models/role_config.dart';
 import '../../services/api_service.dart';
+import '../../services/app_store.dart';
 import '../../widgets/builders.dart';
 import '../../widgets/interactive.dart';
 import '../page_router.dart';
@@ -40,7 +41,7 @@ class _DashboardState extends State<_Dashboard> {
   @override
   void initState() {
     super.initState();
-    if (TokenStore.hasTokens) {
+    if (TokenStore.hasTokens && !AppStore.instance.isDevMode) {
       ApiService().getMyProfile().then((p) {
         if (mounted) setState(() => _profile = p);
       }).catchError((_) {});
@@ -49,8 +50,9 @@ class _DashboardState extends State<_Dashboard> {
   @override
   Widget build(BuildContext context) {
     final cfg    = kRoles[UserRole.accountant]!;
-    final name   = _profile?.displayName ?? cfg.name;
-    final school = _profile?.schoolName  ?? 'Westfield Academy';
+    final store  = AppStore.instance;
+    final name   = store.currentUserName.isNotEmpty ? store.currentUserName : (_profile?.displayName ?? cfg.name);
+    final school = store.currentSchool.isNotEmpty ? store.currentSchool : (_profile?.schoolName ?? 'Westfield Academy');
     return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

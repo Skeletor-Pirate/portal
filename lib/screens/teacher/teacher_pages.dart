@@ -81,12 +81,15 @@ class _DashboardState extends State<_Dashboard> {
           heroPortrait(cfg.avatarAsset, school),
           profileInfo(name, 'Faculty', cfg.idLabel),
           pageTitle('Dashboard', subtitle: 'AI-Powered Portal'),
-          quickStatsBar([
-            QsItem(val: '${_myAssignments.length}', label: 'My Classes'),
-            const QsItem(val: '91%', label: 'Attendance'),
-            QsItem(val: '$pending', label: 'Pending'),
-            QsItem(val: '${asgns.length}', label: 'Assignments'),
-          ]),
+          ValueListenableBuilder<int>(
+            valueListenable: AppStore.instance.globalAttendanceInt,
+            builder: (ctx, attVal, _) => quickStatsBar([
+              QsItem(val: '${_myAssignments.length}', label: 'My Classes'),
+              QsItem(val: '$attVal%', label: 'Attendance'),
+              QsItem(val: '$pending', label: 'Pending'),
+              QsItem(val: '${asgns.length}', label: 'Assignments'),
+            ]),
+          ),
 
           if (_myAssignments.isNotEmpty) ...[
             secLabel("My Class Assignments"),
@@ -207,9 +210,16 @@ class _AttendanceState extends State<_Attendance> {
       // Get enrollments for this section + academic year
       final res = await ApiService().getEnrollments(status: 'current');
       final sectionEnrollments = res.results.where((e) => e.sectionId == a.sectionId).toList();
+      
+      // Fetch today's attendance for this section so UI doesn't reset to 'Present'
+      final now = DateTime.now();
+      final dateStr = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+      final attendanceRes = await ApiService().getAttendance(date: dateStr, sectionId: a.sectionId);
+      final attendanceMap = { for (var rec in attendanceRes.results) rec.studentId: rec.status };
+
       final Map<String, String> initial = {};
       for (final e in sectionEnrollments) {
-        initial[e.studentId] = 'Present';
+        initial[e.studentId] = attendanceMap[e.studentId] ?? 'Present';
       }
       if (mounted) setState(() {
         _enrollments = sectionEnrollments;
@@ -242,6 +252,9 @@ class _AttendanceState extends State<_Attendance> {
         date:           dateStr,
         records:        records,
       );
+
+      // Re-fetch attendance after saving to update dashboard statistics!
+      AppStore.instance.initSession();
 
       AppStore.instance.prependActivity('Attendance Saved', '${a.classLevelName ?? ""} ${a.sectionName ?? ""} · $dateStr');
       if (mounted) {
@@ -905,12 +918,15 @@ class _Analytics extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     pageTitle('Student Analytics', subtitle: 'All classes · Current Term'),
-    statGrid([
-      StatItem(icon: Icons.bar_chart_rounded,    iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '78%', label: 'Combined Avg', delta: 3),
-      StatItem(icon: Icons.emoji_events_rounded, iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '6',   label: 'Top Scorers',  delta: 0),
-      StatItem(icon: Icons.warning_amber_rounded,iconBg: AppColors.redLight,   iconColor: AppColors.red,   val: '4',   label: 'At Risk',       delta: -2),
-      StatItem(icon: Icons.fact_check_rounded,   iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '91%', label: 'Avg Attendance',delta: 1),
-    ]),
+    ValueListenableBuilder<int>(
+      valueListenable: AppStore.instance.globalAttendanceInt,
+      builder: (ctx, attVal, _) => statGrid([
+        StatItem(icon: Icons.bar_chart_rounded,    iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '78%', label: 'Combined Avg', delta: 3),
+        StatItem(icon: Icons.emoji_events_rounded, iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '6',   label: 'Top Scorers',  delta: 0),
+        StatItem(icon: Icons.warning_amber_rounded,iconBg: AppColors.redLight,   iconColor: AppColors.red,   val: '4',   label: 'At Risk',       delta: -2),
+        StatItem(icon: Icons.fact_check_rounded,   iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '$attVal%', label: 'Avg Attendance',delta: 1),
+      ]),
+    ),
     secLabel('Subject Averages · Mid-Term'),
     appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
       ProgressBar(label: 'Physics 11-B', value: 82, gradient: tealGrad()),

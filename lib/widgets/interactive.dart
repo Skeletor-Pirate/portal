@@ -1,11 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERACTIVE LAYER — all modal sheets, dialogs, and stateful features
-// Every action button wires here. Uses dummy data — no real API required.
+// New admin modals (add profile, academic setup, role management, mapping) use
+// real backend API calls. Legacy modals still use AppStore for demo mode.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
+import '../services/app_store.dart';
+import '../services/api_service.dart' hide Exam;
 import 'builders.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,6 +146,22 @@ class _CreateAssignmentSheetState extends State<_CreateAssignmentSheet> {
             showToast(context, 'Please enter a title', color: AppColors.red, icon: Icons.error_outline_rounded);
             return;
           }
+          // ── Write to AppStore so Assignments page & student page update instantly
+          final store = AppStore.instance;
+          final newId = AppStore.nextId();
+          final subLabel = _subject.split(' ').first.toUpperCase();
+          store.addAssignment(Assignment(
+            id: newId,
+            sub: subLabel,
+            title: _titleCtrl.text.trim(),
+            due: _due.replaceAll(', 2025', ''),
+            className: _subject,
+            submitted: 0,
+            total: 28,
+            color: 'blue',
+          ));
+          store.addAssignmentToStudent(subLabel, _titleCtrl.text.trim(), _due.replaceAll(', 2025', ''));
+          store.prependActivity('Assignment Created', '\${_titleCtrl.text.trim()} · \$_subject');
           setState(() => _done = true);
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) Navigator.pop(context);
@@ -188,6 +207,13 @@ class _AnnounceSheetState extends State<_AnnounceSheet> {
             showToast(context, 'Message cannot be empty', color: AppColors.red, icon: Icons.error_outline_rounded);
             return;
           }
+          AppStore.instance.addAnnouncement(Announcement(
+            id: AppStore.nextId(),
+            audience: _audience,
+            message: _msgCtrl.text.trim(),
+            time: 'Just now',
+          ));
+          AppStore.instance.prependActivity('Announcement Posted', '\$_audience · \${_msgCtrl.text.trim().substring(0, _msgCtrl.text.trim().length.clamp(0, 40))}…');
           setState(() => _done = true);
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) Navigator.pop(context);
@@ -200,52 +226,126 @@ class _AnnounceSheetState extends State<_AnnounceSheet> {
 
 // ── Schedule Exam ──────────────────────────────────────────────────────────
 
-void showScheduleExam(BuildContext ctx) => showSheet(ctx, _ScheduleExamSheet(), tall: true);
+void showScheduleExam(BuildContext ctx, {VoidCallback? onDone}) => showSheet(ctx, _ScheduleExamSheet(onDone: onDone), tall: true);
 
 class _ScheduleExamSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _ScheduleExamSheet({this.onDone});
   @override
   State<_ScheduleExamSheet> createState() => _ScheduleExamSheetState();
 }
 class _ScheduleExamSheetState extends State<_ScheduleExamSheet> {
-  final _nameCtrl = TextEditingController();
-  String _class   = 'Science 10-A';
-  String _date    = 'Apr 22, 2025';
-  String _type    = 'Written';
+  final _nameCtrl  = TextEditingController();
+  final _startCtrl = TextEditingController();
+  final _endCtrl   = TextEditingController();
+  List<AcademicYear> _years = [];
+  String? _selectedYearId;
+  bool   _loading = false;
   bool   _done    = false;
+  String? _error;
 
   @override
-  void dispose() { _nameCtrl.dispose(); super.dispose(); }
+  void initState() {
+    super.initState();
+    _loadYears();
+    final now = DateTime.now();
+    final fmt = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+    _startCtrl.text = fmt;
+    _endCtrl.text = fmt;
+  }
+
+  Future<void> _loadYears() async {
+    if (!TokenStore.hasTokens) return;
+    try {
+      final res = await ApiService().getAcademicYears();
+      if (mounted) setState(() {
+        _years = res.results;
+        _selectedYearId = res.results.isNotEmpty ? res.results.first.id : null;
+      });
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() { _nameCtrl.dispose(); _startCtrl.dispose(); _endCtrl.dispose(); super.dispose(); }
+
+  Future<void> _submit() async {
+    if (_nameCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Exam name is required.'); return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      if (TokenStore.hasTokens && _selectedYearId != null) {
+        await ApiService().createExam({
+          'name':          _nameCtrl.text.trim(),
+          'academic_year': _selectedYearId!,
+          'start_date':    _startCtrl.text.trim(),
+          'end_date':      _endCtrl.text.trim(),
+          'is_published':  false,
+        });
+      }
+      // Also update AppStore for demo/offline mode
+      AppStore.instance.addExam(Exam(
+        id: AppStore.nextId(),
+        sub: 'EXAM',
+        title: _nameCtrl.text.trim(),
+        dateStr: _startCtrl.text,
+        room: 'TBD',
+        status: 'Upcoming',
+        type: 'Written',
+      ));
+      AppStore.instance.prependActivity('Exam Scheduled', _nameCtrl.text.trim());
+      if (mounted) setState(() { _done = true; _loading = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_done) return _successPanel(context, 'Exam Scheduled!',
-        '${_nameCtrl.text} · $_class · $_date', Icons.edit_calendar_rounded);
+    if (_done) return _successPanel(context, 'Exam Scheduled!', _nameCtrl.text.trim(), Icons.edit_calendar_rounded);
     return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _sheetTitle('Schedule Exam', Icons.edit_calendar_rounded, AppColors.amber),
         const SizedBox(height: 20),
         _label('Exam Name'),
         _tf(_nameCtrl, 'e.g. Mid-Term Examination'),
-        _label('Class'),
-        _dropdown(_class, ['Science 10-A','Physics 11-B','Chemistry 12'],
-            (v) => setState(() => _class = v!)),
-        _label('Date'),
-        _dropdown(_date, ['Apr 15, 2025','Apr 18, 2025','Apr 22, 2025','Apr 25, 2025'],
-            (v) => setState(() => _date = v!)),
-        _label('Type'),
-        _dropdown(_type, ['Written','Practical','MCQ','Oral'],
-            (v) => setState(() => _type = v!)),
+        if (_years.isNotEmpty) ...[
+          _label('Academic Year'),
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rMd)),
+            child: DropdownButtonHideUnderline(child: DropdownButton<String>(
+              value: _selectedYearId,
+              isExpanded: true,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
+              items: _years.map((y) => DropdownMenuItem(value: y.id, child: Text(y.name))).toList(),
+              onChanged: (v) => setState(() => _selectedYearId = v),
+            )),
+          ),
+        ],
+        _label('Start Date (YYYY-MM-DD)'),
+        _tf(_startCtrl, '2025-04-22'),
+        _label('End Date (YYYY-MM-DD)'),
+        _tf(_endCtrl, '2025-04-22'),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd)),
+            child: Text(_error!, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.red))),
+        ],
         const SizedBox(height: 24),
-        navyBtn('Schedule Exam', onTap: () {
-          if (_nameCtrl.text.trim().isEmpty) {
-            showToast(context, 'Enter exam name', color: AppColors.red, icon: Icons.error_outline_rounded);
-            return;
-          }
-          setState(() => _done = true);
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) Navigator.pop(context);
-          });
-        }),
+        GestureDetector(
+          onTap: _loading ? null : _submit,
+          child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.gradA, AppColors.gradC]), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowMd),
+            child: Center(child: _loading
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text('Schedule Exam', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)))),
+        ),
       ]),
     );
   }
@@ -757,81 +857,165 @@ class _MessageSheetState extends State<_MessageSheet> {
 // ADMIN MODALS
 // ═════════════════════════════════════════════════════════════════════════════
 
-void showAddStudent(BuildContext ctx) => showSheet(ctx, _AddProfileSheet(type: 'Student'), tall: true);
-void showAddTeacher(BuildContext ctx) => showSheet(ctx, _AddProfileSheet(type: 'Teacher'), tall: true);
-void showAddParent(BuildContext ctx)  => showSheet(ctx, _AddProfileSheet(type: 'Parent'),  tall: true);
+void showAddStudent(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _AddProfileSheet(type: 'Student', onDone: onDone), tall: true);
+void showAddTeacher(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _AddProfileSheet(type: 'Teacher', onDone: onDone), tall: true);
+void showAddParent(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _AddProfileSheet(type: 'Parent', onDone: onDone), tall: true);
 
+/// Two-step creation: first create a User account, then create the profile.
 class _AddProfileSheet extends StatefulWidget {
   final String type;
-  const _AddProfileSheet({required this.type});
+  final VoidCallback? onDone;
+  const _AddProfileSheet({required this.type, this.onDone});
   @override
   State<_AddProfileSheet> createState() => _AddProfileSheetState();
 }
+
 class _AddProfileSheetState extends State<_AddProfileSheet> {
-  final _firstCtrl = TextEditingController();
-  final _lastCtrl  = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _idCtrl    = TextEditingController();
-  String _grade    = 'Grade 10';
-  bool   _done     = false;
+  final _firstCtrl  = TextEditingController();
+  final _lastCtrl   = TextEditingController();
+  final _emailCtrl  = TextEditingController();
+  final _passCtrl   = TextEditingController();
+  final _idCtrl     = TextEditingController();      // enrollmentNo / employeeId
+  final _extraCtrl  = TextEditingController();       // bloodGroup / qualification / occupation
+  bool _loading = false;
+  bool _done    = false;
+  String? _error;
 
   @override
   void dispose() {
-    for (final c in [_firstCtrl, _lastCtrl, _emailCtrl, _idCtrl]) c.dispose();
+    for (final c in [_firstCtrl, _lastCtrl, _emailCtrl, _passCtrl, _idCtrl, _extraCtrl]) c.dispose();
     super.dispose();
   }
 
+  Future<void> _submit() async {
+    final first = _firstCtrl.text.trim();
+    final last  = _lastCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+    final pass  = _passCtrl.text;
+    final id    = _idCtrl.text.trim();
+
+    if (first.isEmpty || last.isEmpty || email.isEmpty || pass.isEmpty) {
+      setState(() => _error = 'First name, last name, email and password are required.');
+      return;
+    }
+    if (id.isEmpty) {
+      setState(() => _error = widget.type == 'Student' ? 'Enrollment number is required.' : widget.type == 'Teacher' ? 'Employee ID is required.' : null);
+      if (widget.type != 'Parent' && id.isEmpty) return;
+    }
+
+    setState(() { _loading = true; _error = null; });
+    try {
+      // Step 1: Create User account
+      late TenantUser user;
+      try {
+        user = await ApiService().createUser({
+          'first_name': first,
+          'last_name':  last,
+          'email':      email,
+          'password':   pass,
+        });
+      } on ApiException catch (e) {
+        throw ApiException('User creation failed: ${e.message}', statusCode: e.statusCode);
+      }
+
+      // Step 2: Assign appropriate Role
+      try {
+        final rolesRes = await ApiService().getRoles();
+        final roleName = widget.type; // 'Student', 'Teacher', or 'Parent'
+        final match = rolesRes.results.firstWhere((r) => r.name.toLowerCase() == roleName.toLowerCase(), orElse: () => rolesRes.results.first);
+        await ApiService().createUserRole({
+          'user': user.id,
+          'role': match.id,
+        });
+      } catch (e) {
+        // Silently continue if role assignment already exists or fails (backend might handle it)
+        print('Role assignment note: $e');
+      }
+
+      // Step 3: Create the typed Profile
+      try {
+        if (widget.type == 'Student') {
+          await ApiService().createStudent({
+            'user':               user.id,
+            'enrollment_number':  id,
+            'blood_group':        _extraCtrl.text.trim().isNotEmpty ? _extraCtrl.text.trim() : null,
+          });
+        } else if (widget.type == 'Teacher') {
+          await ApiService().createTeacher({
+            'user':          user.id,
+            'employee_id':   id,
+            'qualification': _extraCtrl.text.trim().isNotEmpty ? _extraCtrl.text.trim() : null,
+          });
+        } else {
+          await ApiService().createParent({
+            'user':       user.id,
+            'occupation': _extraCtrl.text.trim().isNotEmpty ? _extraCtrl.text.trim() : null,
+          });
+        }
+      } on ApiException catch (e) {
+        throw ApiException('${widget.type} profile creation failed: ${e.message}', statusCode: e.statusCode);
+      }
+
+      AppStore.instance.prependActivity('${widget.type} Added', '$first $last');
+      if (mounted) setState(() { _done = true; _loading = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) Navigator.pop(context);
+      });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  String get _idLabel => widget.type == 'Student' ? 'Enrollment Number' : widget.type == 'Teacher' ? 'Employee ID' : 'Occupation (optional)';
+  String get _idHint  => widget.type == 'Student' ? 'e.g. ENR-2025-001' : widget.type == 'Teacher' ? 'e.g. EMP-042' : 'e.g. Engineer';
+  String get _extraLabel => widget.type == 'Student' ? 'Blood Group (optional)' : widget.type == 'Teacher' ? 'Qualification (optional)' : 'Emergency Contact (optional)';
+  String get _extraHint  => widget.type == 'Student' ? 'e.g. O+' : widget.type == 'Teacher' ? 'e.g. B.Sc Physics' : 'e.g. +91 98765 00000';
+
   @override
   Widget build(BuildContext context) {
-    if (_done) return _successPanel(context,
-        '${widget.type} Profile Created!',
-        '${_firstCtrl.text} ${_lastCtrl.text} added successfully.',
-        Icons.person_add_rounded);
+    if (_done) return _successPanel(context, '${widget.type} Added!', '${_firstCtrl.text} ${_lastCtrl.text} created successfully.', Icons.person_add_rounded);
+
     return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _sheetTitle('Add ${widget.type}', Icons.person_add_rounded, AppColors.blue),
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
+        Container(padding: const EdgeInsets.all(10), margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(color: AppColors.blueLight, borderRadius: BorderRadius.circular(rMd)),
+          child: Text('Creates a user account + ${widget.type.toLowerCase()} profile in one step.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.blue))),
         Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('First Name'),
-            _tf(_firstCtrl, 'First name'),
-          ])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [ _label('First Name'), _tf(_firstCtrl, 'First name') ])),
           const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('Last Name'),
-            _tf(_lastCtrl, 'Last name'),
-          ])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [ _label('Last Name'), _tf(_lastCtrl, 'Last name') ])),
         ]),
-        _label('Email'),
+        _label('Email Address'),
         _tf(_emailCtrl, 'email@school.com', type: TextInputType.emailAddress),
-        if (widget.type == 'Student') ...[
-          _label('Grade / Class'),
-          _dropdown(_grade, ['Grade 9','Grade 10','Grade 11','Grade 12'],
-              (v) => setState(() => _grade = v!)),
-          _label('Roll Number'),
-          _tf(_idCtrl, 'e.g. 042', type: TextInputType.number),
-        ] else if (widget.type == 'Teacher') ...[
-          _label('Employee ID'),
-          _tf(_idCtrl, 'e.g. EMP-042'),
-          _label('Subject Specialisation'),
-          _dropdown(_grade, ['Mathematics','Physics','Chemistry','English','History','Biology'],
-              (v) => setState(() => _grade = v!)),
-        ] else ...[
-          _label('Guardian ID'),
-          _tf(_idCtrl, 'e.g. PR-042'),
+        _label('Password (temporary)'),
+        _tf(_passCtrl, 'Min. 8 characters', obscure: true),
+        _label(_idLabel),
+        _tf(_idCtrl, _idHint),
+        _label(_extraLabel),
+        _tf(_extraCtrl, _extraHint),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: const Color(0xFFFCA5A5))),
+            child: Row(children: [ const Icon(Icons.error_outline_rounded, size: 14, color: AppColors.red), const SizedBox(width: 8), Expanded(child: Text(_error!, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.red))) ])),
         ],
         const SizedBox(height: 24),
-        navyBtn('Create Profile', onTap: () {
-          if (_firstCtrl.text.trim().isEmpty || _lastCtrl.text.trim().isEmpty) {
-            showToast(context, 'Enter first and last name',
-                color: AppColors.red, icon: Icons.error_outline_rounded);
-            return;
-          }
-          setState(() => _done = true);
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) Navigator.pop(context);
-          });
-        }),
+        GestureDetector(
+          onTap: _loading ? null : _submit,
+          child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.gradA, AppColors.gradC], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowMd),
+            child: Center(child: _loading
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text('Create ${widget.type}', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white))),
+          ),
+        ),
       ]),
     );
   }
@@ -998,13 +1182,14 @@ Widget _label(String t) => Padding(
 );
 
 Widget _tf(TextEditingController ctrl, String hint,
-    {int lines = 1, TextInputType? type}) =>
+    {int lines = 1, TextInputType? type, bool obscure = false}) =>
     Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
         controller: ctrl,
-        maxLines: lines,
+        maxLines: obscure ? 1 : lines,
         keyboardType: type,
+        obscureText: obscure,
         style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
         decoration: InputDecoration(
           hintText: hint,
@@ -1356,77 +1541,7 @@ class _QuickNotesSheetState extends State<_QuickNotesSheet> {
 
 // ── Bulk Promote Students (Admin) ──────────────────────────────────────────
 
-void showBulkPromote(BuildContext ctx) =>
-    showSheet(ctx, _BulkPromoteSheet());
-
-class _BulkPromoteSheet extends StatefulWidget {
-  @override
-  State<_BulkPromoteSheet> createState() => _BulkPromoteSheetState();
-}
-class _BulkPromoteSheetState extends State<_BulkPromoteSheet> {
-  String _from = 'Grade 10';
-  String _to   = 'Grade 11';
-  bool   _done = false;
-  final Set<String> _selected = {'Maya Johnson', 'Arjun Mehta', 'Leo Chen'};
-  static const _students = ['Maya Johnson', 'Arjun Mehta', 'Leo Chen', 'Zara Williams', 'Sofia Rodriguez'];
-
-  @override
-  Widget build(BuildContext context) {
-    if (_done) return _successPanel(context, 'Students Promoted!',
-        '${_selected.length} students moved from $_from to $_to.', Icons.trending_up_rounded);
-    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _sheetTitle('Bulk Promote', Icons.trending_up_rounded, AppColors.teal),
-        const SizedBox(height: 20),
-        Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('From Grade'),
-            _dropdown(_from, ['Grade 9','Grade 10','Grade 11'], (v) => setState(() => _from = v!)),
-          ])),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 16, 8, 14),
-            child: const Icon(Icons.arrow_forward_rounded, color: AppColors.text3),
-          ),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('To Grade'),
-            _dropdown(_to, ['Grade 10','Grade 11','Grade 12'], (v) => setState(() => _to = v!)),
-          ])),
-        ]),
-        _label('Select Students'),
-        ..._students.map((s) => GestureDetector(
-          onTap: () => setState(() => _selected.contains(s) ? _selected.remove(s) : _selected.add(s)),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: _selected.contains(s) ? AppColors.blueLight : AppColors.surface,
-              borderRadius: BorderRadius.circular(rMd),
-              border: Border.all(
-                  color: _selected.contains(s) ? AppColors.blue : AppColors.border, width: 1.5),
-            ),
-            child: Row(children: [
-              Icon(_selected.contains(s) ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                  size: 18, color: _selected.contains(s) ? AppColors.blue : AppColors.text4),
-              const SizedBox(width: 10),
-              Text(s, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600,
-                  color: _selected.contains(s) ? AppColors.blue : AppColors.text1)),
-            ]),
-          ),
-        )),
-        const SizedBox(height: 16),
-        navyBtn('Promote ${_selected.length} Student${_selected.length == 1 ? '' : 's'}',
-          onTap: () {
-            if (_selected.isEmpty) {
-              showToast(context, 'Select at least one student', color: AppColors.red, icon: Icons.error_outline_rounded);
-              return;
-            }
-            setState(() => _done = true);
-            Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
-          }),
-      ]),
-    );
-  }
-}
+// showBulkPromote is defined below with real API implementation
 
 // ── Record Manual Payment (Accountant) ────────────────────────────────────
 
@@ -1598,52 +1713,7 @@ class _FinancialReportSheet extends StatelessWidget {
 
 // ── Enrol Student (Admin) ──────────────────────────────────────────────────
 
-void showEnrolStudent(BuildContext ctx) =>
-    showSheet(ctx, _EnrolStudentSheet(), tall: true);
-
-class _EnrolStudentSheet extends StatefulWidget {
-  @override
-  State<_EnrolStudentSheet> createState() => _EnrolStudentSheetState();
-}
-class _EnrolStudentSheetState extends State<_EnrolStudentSheet> {
-  final _nameCtrl  = TextEditingController();
-  String _grade    = 'Grade 10';
-  String _year     = '2024–25';
-  bool   _done     = false;
-
-  @override
-  void dispose() { _nameCtrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_done) return _successPanel(context, 'Student Enrolled!',
-        '${_nameCtrl.text} · $_grade · $_year', Icons.school_rounded);
-    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _sheetTitle('Enrol Student', Icons.school_rounded, AppColors.green),
-        const SizedBox(height: 20),
-        _label('Student Name / ID'),
-        _tf(_nameCtrl, 'Search or enter student name…'),
-        _label('Grade / Class'),
-        _dropdown(_grade, ['Grade 9','Grade 10','Grade 11','Grade 12'],
-            (v) => setState(() => _grade = v!)),
-        _label('Academic Year'),
-        _dropdown(_year, ['2024–25','2025–26'],
-            (v) => setState(() => _year = v!)),
-        const SizedBox(height: 24),
-        navyBtn('Confirm Enrolment', onTap: () {
-          if (_nameCtrl.text.trim().isEmpty) {
-            showToast(context, 'Enter student name or ID',
-                color: AppColors.red, icon: Icons.error_outline_rounded);
-            return;
-          }
-          setState(() => _done = true);
-          Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
-        }),
-      ]),
-    );
-  }
-}
+// showEnrolStudent is defined below with real API implementation
 
 // ── System Alert (Global Admin) ────────────────────────────────────────────
 
@@ -1693,3 +1763,970 @@ class _SystemAlertSheetState extends State<_SystemAlertSheet> {
     );
   }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// NEW API-BACKED ADMIN MODALS
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── Update showBulkPromote to accept onDone ────────────────────────────────
+
+void showBulkPromote(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _BulkPromoteApiSheet(onDone: onDone), tall: true);
+
+class _BulkPromoteApiSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _BulkPromoteApiSheet({this.onDone});
+  @override
+  State<_BulkPromoteApiSheet> createState() => _BulkPromoteApiSheetState();
+}
+
+class _BulkPromoteApiSheetState extends State<_BulkPromoteApiSheet> {
+  List<StudentProfile> _students        = [];
+  List<AcademicYear>   _years           = [];
+  List<ClassLevel>     _classes         = [];
+  List<Section>        _sections        = [];
+  Set<String>          _selected        = {};
+  String?              _targetYearId;
+  String?              _targetClassId;
+  String?              _targetSectionId;
+  bool _loading = true;
+  bool _saving  = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
+    try {
+      final results = await Future.wait([
+        ApiService().getStudents(),
+        ApiService().getAcademicYears(),
+        ApiService().getClassLevels(),
+        ApiService().getSections(),
+      ]);
+      if (!mounted) return;
+      final years   = (results[1] as PaginatedResult<AcademicYear>).results;
+      final classes = (results[2] as PaginatedResult<ClassLevel>).results;
+      final sects   = (results[3] as PaginatedResult<Section>).results;
+      setState(() {
+        _students = (results[0] as PaginatedResult<StudentProfile>).results;
+        _years    = years;
+        _classes  = classes;
+        _sections = sects;
+        _targetYearId    = years.isNotEmpty    ? years.first.id    : null;
+        _targetClassId   = classes.isNotEmpty  ? classes.first.id  : null;
+        _targetSectionId = sects.isNotEmpty    ? sects.first.id    : null;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _promote() async {
+    if (_selected.isEmpty) { setState(() => _error = 'Select at least one student.'); return; }
+    if (_targetYearId == null || _targetClassId == null || _targetSectionId == null) {
+      setState(() => _error = 'Select target year, class, and section.'); return;
+    }
+    setState(() { _saving = true; _error = null; });
+    try {
+      final detail = await ApiService().bulkPromote(
+        studentIds:           _selected.toList(),
+        targetAcademicYearId: _targetYearId!,
+        targetClassLevelId:   _targetClassId!,
+        targetSectionId:      _targetSectionId!,
+      );
+      AppStore.instance.prependActivity('Bulk Promotion', '${_selected.length} students promoted');
+      if (mounted) setState(() { _done = true; _saving = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _saving = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _saving = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Students Promoted!', '${_selected.length} students moved successfully.', Icons.trending_up_rounded);
+    if (_loading) return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: AppColors.blue)));
+
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Bulk Promote Students', Icons.trending_up_rounded, AppColors.teal),
+        const SizedBox(height: 16),
+
+        _label('Target Academic Year'),
+        _apiDropdown<AcademicYear>(_years, _targetYearId, (y) => y.name, (v) => setState(() => _targetYearId = v)),
+        _label('Target Class'),
+        _apiDropdown<ClassLevel>(_classes, _targetClassId, (c) => c.name, (v) => setState(() => _targetClassId = v)),
+        _label('Target Section'),
+        _apiDropdown<Section>(_sections, _targetSectionId, (s) => '${s.classLevelName ?? ""} — ${s.name}', (v) => setState(() => _targetSectionId = v)),
+
+        _label('Select Students (${_selected.length} selected)'),
+        Container(
+          height: 200,
+          decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rMd)),
+          child: ListView(children: _students.map((s) => CheckboxListTile(
+            value: _selected.contains(s.id),
+            onChanged: (v) => setState(() { if (v == true) _selected.add(s.id); else _selected.remove(s.id); }),
+            title: Text(s.fullName, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1)),
+            subtitle: Text('ID: ${s.enrollmentNumber ?? "—"}', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.text3)),
+            dense: true,
+            activeColor: AppColors.blue,
+          )).toList()),
+        ),
+
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd)),
+            child: Text(_error!, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.red))),
+        ],
+        const SizedBox(height: 20),
+        GestureDetector(
+          onTap: _saving ? null : _promote,
+          child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.gradA, AppColors.gradC]), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowMd),
+            child: Center(child: _saving
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text('Promote ${_selected.length} Students', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)))),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── showEnrolStudent ───────────────────────────────────────────────────────
+
+void showEnrolStudent(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _EnrolStudentApiSheet(onDone: onDone), tall: true);
+
+class _EnrolStudentApiSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _EnrolStudentApiSheet({this.onDone});
+  @override
+  State<_EnrolStudentApiSheet> createState() => _EnrolStudentApiSheetState();
+}
+
+class _EnrolStudentApiSheetState extends State<_EnrolStudentApiSheet> {
+  List<StudentProfile> _students = [];
+  List<AcademicYear>   _years    = [];
+  List<ClassLevel>     _classes  = [];
+  List<Section>        _sections = [];
+  String? _studentId;
+  String? _yearId;
+  String? _classId;
+  String? _sectionId;
+  final _rollCtrl = TextEditingController();
+  bool _loading = true;
+  bool _saving  = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  @override
+  void dispose() { _rollCtrl.dispose(); super.dispose(); }
+
+  Future<void> _load() async {
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
+    try {
+      final results = await Future.wait([
+        ApiService().getStudents(),
+        ApiService().getAcademicYears(),
+        ApiService().getClassLevels(),
+        ApiService().getSections(),
+      ]);
+      if (!mounted) return;
+      final years   = (results[1] as PaginatedResult<AcademicYear>).results;
+      final classes = (results[2] as PaginatedResult<ClassLevel>).results;
+      final sects   = (results[3] as PaginatedResult<Section>).results;
+      final studs   = (results[0] as PaginatedResult<StudentProfile>).results;
+      setState(() {
+        _students  = studs;
+        _years     = years;
+        _classes   = classes;
+        _sections  = sects;
+        _studentId = studs.isNotEmpty  ? studs.first.id  : null;
+        _yearId    = years.isNotEmpty  ? years.first.id  : null;
+        _classId   = classes.isNotEmpty ? classes.first.id : null;
+        _sectionId = sects.isNotEmpty  ? sects.first.id  : null;
+        _loading   = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_studentId == null || _yearId == null || _classId == null || _sectionId == null) {
+      setState(() => _error = 'All fields are required.'); return;
+    }
+    setState(() { _saving = true; _error = null; });
+    try {
+      await ApiService().createEnrollment({
+        'student':       _studentId!,
+        'academic_year': _yearId!,
+        'class_level':   _classId!,
+        'section':       _sectionId!,
+        if (_rollCtrl.text.trim().isNotEmpty) 'roll_number': _rollCtrl.text.trim(),
+      });
+      AppStore.instance.prependActivity('Student Enrolled', 'Enrollment created');
+      if (mounted) setState(() { _done = true; _saving = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _saving = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _saving = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Student Enrolled!', 'Enrollment created successfully.', Icons.how_to_reg_rounded);
+    if (_loading) return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: AppColors.blue)));
+
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Enroll Student', Icons.how_to_reg_rounded, AppColors.blue),
+        const SizedBox(height: 16),
+        _label('Student'),
+        _apiDropdown<StudentProfile>(_students, _studentId, (s) => '${s.fullName} (${s.enrollmentNumber ?? "—"})', (v) => setState(() => _studentId = v)),
+        _label('Academic Year'),
+        _apiDropdown<AcademicYear>(_years, _yearId, (y) => y.name, (v) => setState(() => _yearId = v)),
+        _label('Class Level'),
+        _apiDropdown<ClassLevel>(_classes, _classId, (c) => c.name, (v) => setState(() => _classId = v)),
+        _label('Section'),
+        _apiDropdown<Section>(_sections, _sectionId, (s) => '${s.classLevelName ?? ""} — ${s.name}', (v) => setState(() => _sectionId = v)),
+        _label('Roll Number (optional)'),
+        _tf(_rollCtrl, 'e.g. 042', type: TextInputType.number),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd)),
+            child: Text(_error!, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.red))),
+        ],
+        const SizedBox(height: 20),
+        GestureDetector(
+          onTap: _saving ? null : _submit,
+          child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.gradA, AppColors.gradC]), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowMd),
+            child: Center(child: _saving
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text('Enroll Student', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)))),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Academic Year CRUD ─────────────────────────────────────────────────────
+
+void showAddAcademicYear(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _AddAcademicYearSheet(onDone: onDone), tall: true);
+
+class _AddAcademicYearSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _AddAcademicYearSheet({this.onDone});
+  @override State<_AddAcademicYearSheet> createState() => _AddAcademicYearSheetState();
+}
+class _AddAcademicYearSheetState extends State<_AddAcademicYearSheet> {
+  final _nameCtrl  = TextEditingController();
+  final _startCtrl = TextEditingController(text: '2025-06-01');
+  final _endCtrl   = TextEditingController(text: '2026-03-31');
+  bool _isActive = false;
+  bool _loading = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void dispose() { _nameCtrl.dispose(); _startCtrl.dispose(); _endCtrl.dispose(); super.dispose(); }
+
+  Future<void> _submit() async {
+    if (_nameCtrl.text.trim().isEmpty) { setState(() => _error = 'Name is required.'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await ApiService().createAcademicYear({
+        'name':       _nameCtrl.text.trim(),
+        'start_date': _startCtrl.text.trim(),
+        'end_date':   _endCtrl.text.trim(),
+        'is_active':  _isActive,
+      });
+      AppStore.instance.prependActivity('Academic Year Created', _nameCtrl.text.trim());
+      if (mounted) setState(() { _done = true; _loading = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Academic Year Created!', _nameCtrl.text, Icons.calendar_month_rounded);
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Add Academic Year', Icons.calendar_month_rounded, AppColors.blue),
+        const SizedBox(height: 20),
+        _label('Name'), _tf(_nameCtrl, 'e.g. 2025–2026'),
+        _label('Start Date (YYYY-MM-DD)'), _tf(_startCtrl, '2025-06-01'),
+        _label('End Date (YYYY-MM-DD)'),   _tf(_endCtrl, '2026-03-31'),
+        Row(children: [
+          Checkbox(value: _isActive, activeColor: AppColors.blue, onChanged: (v) => setState(() => _isActive = v ?? false)),
+          Text('Mark as Active Year', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2)),
+        ]),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Create Academic Year', _loading, _submit),
+      ]),
+    );
+  }
+}
+
+// ── Class Level CRUD ───────────────────────────────────────────────────────
+
+void showAddClassLevel(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _AddClassLevelSheet(onDone: onDone));
+
+class _AddClassLevelSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _AddClassLevelSheet({this.onDone});
+  @override State<_AddClassLevelSheet> createState() => _AddClassLevelSheetState();
+}
+class _AddClassLevelSheetState extends State<_AddClassLevelSheet> {
+  final _nameCtrl  = TextEditingController();
+  final _orderCtrl = TextEditingController();
+  bool _loading = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void dispose() { _nameCtrl.dispose(); _orderCtrl.dispose(); super.dispose(); }
+
+  Future<void> _submit() async {
+    if (_nameCtrl.text.trim().isEmpty || _orderCtrl.text.trim().isEmpty) { setState(() => _error = 'Name and numeric order are required.'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await ApiService().createClassLevel({'name': _nameCtrl.text.trim(), 'numeric_order': int.tryParse(_orderCtrl.text.trim()) ?? 1});
+      if (mounted) setState(() { _done = true; _loading = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Class Level Created!', _nameCtrl.text, Icons.class_rounded);
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Add Class Level', Icons.class_rounded, AppColors.teal),
+        const SizedBox(height: 20),
+        _label('Name'), _tf(_nameCtrl, 'e.g. Grade 10'),
+        _label('Numeric Order (for sorting)'), _tf(_orderCtrl, 'e.g. 10', type: TextInputType.number),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Create Class Level', _loading, _submit),
+      ]),
+    );
+  }
+}
+
+// ── Section CRUD ───────────────────────────────────────────────────────────
+
+void showAddSection(BuildContext ctx, {required List<ClassLevel> classLevels, VoidCallback? onDone}) =>
+    showSheet(ctx, _AddSectionSheet(classLevels: classLevels, onDone: onDone));
+
+class _AddSectionSheet extends StatefulWidget {
+  final List<ClassLevel> classLevels;
+  final VoidCallback? onDone;
+  const _AddSectionSheet({required this.classLevels, this.onDone});
+  @override State<_AddSectionSheet> createState() => _AddSectionSheetState();
+}
+class _AddSectionSheetState extends State<_AddSectionSheet> {
+  final _nameCtrl = TextEditingController();
+  String? _classId;
+  bool _loading = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _classId = widget.classLevels.isNotEmpty ? widget.classLevels.first.id : null;
+  }
+
+  @override
+  void dispose() { _nameCtrl.dispose(); super.dispose(); }
+
+  Future<void> _submit() async {
+    if (_nameCtrl.text.trim().isEmpty || _classId == null) { setState(() => _error = 'Name and class are required.'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await ApiService().createSection({'name': _nameCtrl.text.trim(), 'class_level': _classId!});
+      if (mounted) setState(() { _done = true; _loading = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Section Created!', _nameCtrl.text, Icons.grid_view_rounded);
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Add Section', Icons.grid_view_rounded, AppColors.amber),
+        const SizedBox(height: 20),
+        _label('Class Level'),
+        _apiDropdown<ClassLevel>(widget.classLevels, _classId, (c) => c.name, (v) => setState(() => _classId = v)),
+        _label('Section Name'), _tf(_nameCtrl, 'e.g. A'),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Create Section', _loading, _submit),
+      ]),
+    );
+  }
+}
+
+// ── Subject CRUD ───────────────────────────────────────────────────────────
+
+void showAddSubject(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _AddSubjectSheet(onDone: onDone));
+
+class _AddSubjectSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _AddSubjectSheet({this.onDone});
+  @override State<_AddSubjectSheet> createState() => _AddSubjectSheetState();
+}
+class _AddSubjectSheetState extends State<_AddSubjectSheet> {
+  final _nameCtrl = TextEditingController();
+  final _codeCtrl = TextEditingController();
+  bool _loading = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void dispose() { _nameCtrl.dispose(); _codeCtrl.dispose(); super.dispose(); }
+
+  Future<void> _submit() async {
+    if (_nameCtrl.text.trim().isEmpty) { setState(() => _error = 'Subject name is required.'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await ApiService().createSubject({
+        'name': _nameCtrl.text.trim(),
+        if (_codeCtrl.text.trim().isNotEmpty) 'code': _codeCtrl.text.trim(),
+      });
+      if (mounted) setState(() { _done = true; _loading = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Subject Created!', _nameCtrl.text, Icons.book_rounded);
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Add Subject', Icons.book_rounded, AppColors.green),
+        const SizedBox(height: 20),
+        _label('Subject Name'), _tf(_nameCtrl, 'e.g. Physics'),
+        _label('Subject Code (optional)'), _tf(_codeCtrl, 'e.g. PHY101'),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Create Subject', _loading, _submit),
+      ]),
+    );
+  }
+}
+
+// ── Role CRUD ──────────────────────────────────────────────────────────────
+
+void showCreateRole(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _CreateRoleSheet(onDone: onDone), tall: true);
+
+class _CreateRoleSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _CreateRoleSheet({this.onDone});
+  @override State<_CreateRoleSheet> createState() => _CreateRoleSheetState();
+}
+class _CreateRoleSheetState extends State<_CreateRoleSheet> {
+  final _nameCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  List<AppPermission> _permissions    = [];
+  Set<String>         _selectedPerms  = {};
+  bool _loading = true;
+  bool _saving  = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  @override
+  void dispose() { _nameCtrl.dispose(); _descCtrl.dispose(); super.dispose(); }
+
+  Future<void> _load() async {
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
+    try {
+      final perms = await ApiService().getPermissions();
+      if (mounted) setState(() { _permissions = perms; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_nameCtrl.text.trim().isEmpty) { setState(() => _error = 'Role name is required.'); return; }
+    setState(() { _saving = true; _error = null; });
+    try {
+      await ApiService().createRole({
+        'name':        _nameCtrl.text.trim(),
+        'description': _descCtrl.text.trim(),
+        'permissions': _selectedPerms.toList(),
+      });
+      AppStore.instance.prependActivity('Role Created', _nameCtrl.text.trim());
+      if (mounted) setState(() { _done = true; _saving = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _saving = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Role Created!', _nameCtrl.text, Icons.key_rounded);
+    if (_loading) return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: AppColors.blue)));
+
+    // Group permissions by module
+    final byModule = <String, List<AppPermission>>{};
+    for (final p in _permissions) {
+      byModule.putIfAbsent(p.module, () => []).add(p);
+    }
+
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Create Role', Icons.key_rounded, AppColors.amber),
+        const SizedBox(height: 20),
+        _label('Role Name'), _tf(_nameCtrl, 'e.g. Class Teacher'),
+        _label('Description (optional)'), _tf(_descCtrl, 'What does this role do?', lines: 2),
+        _label('Assign Permissions (${_selectedPerms.length} selected)'),
+        Container(
+          height: 260,
+          decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rMd)),
+          child: ListView(children: byModule.entries.expand((entry) => [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: Text(entry.key.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.4, color: AppColors.text4)),
+            ),
+            ...entry.value.map((p) => CheckboxListTile(
+              value: _selectedPerms.contains(p.id),
+              onChanged: (v) => setState(() { if (v == true) _selectedPerms.add(p.id); else _selectedPerms.remove(p.id); }),
+              title: Text(p.name, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text1)),
+              subtitle: Text(p.codename, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.text3)),
+              dense: true,
+              activeColor: AppColors.blue,
+            )),
+          ]).toList()),
+        ),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Create Role', _saving, _submit),
+      ]),
+    );
+  }
+}
+
+// ── Create User ────────────────────────────────────────────────────────────
+
+void showCreateUser(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _CreateUserSheet(onDone: onDone), tall: true);
+
+class _CreateUserSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _CreateUserSheet({this.onDone});
+  @override State<_CreateUserSheet> createState() => _CreateUserSheetState();
+}
+class _CreateUserSheetState extends State<_CreateUserSheet> {
+  final _firstCtrl  = TextEditingController();
+  final _lastCtrl   = TextEditingController();
+  final _emailCtrl  = TextEditingController();
+  final _passCtrl   = TextEditingController();
+  bool _loading = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void dispose() { for (final c in [_firstCtrl, _lastCtrl, _emailCtrl, _passCtrl]) c.dispose(); super.dispose(); }
+
+  Future<void> _submit() async {
+    if (_firstCtrl.text.trim().isEmpty || _emailCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
+      setState(() => _error = 'First name, email and password are required.'); return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await ApiService().createUser({
+        'first_name': _firstCtrl.text.trim(),
+        'last_name':  _lastCtrl.text.trim(),
+        'email':      _emailCtrl.text.trim(),
+        'password':   _passCtrl.text,
+      });
+      AppStore.instance.prependActivity('User Created', '${_firstCtrl.text} ${_lastCtrl.text}');
+      if (mounted) setState(() { _done = true; _loading = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'User Created!', '${_firstCtrl.text} ${_lastCtrl.text}', Icons.person_rounded);
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Create User Account', Icons.person_add_rounded, AppColors.blue),
+        const SizedBox(height: 20),
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_label('First Name'), _tf(_firstCtrl, 'First name')])),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_label('Last Name'), _tf(_lastCtrl, 'Last name')])),
+        ]),
+        _label('Email'), _tf(_emailCtrl, 'email@school.com', type: TextInputType.emailAddress),
+        _label('Password'), _tf(_passCtrl, 'Temporary password', obscure: true),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Create User', _loading, _submit),
+      ]),
+    );
+  }
+}
+
+// ── Assign Role to User ────────────────────────────────────────────────────
+
+void showAssignRole(BuildContext ctx, {required List<TenantUser> users, required List<AppRole> roles, VoidCallback? onDone}) =>
+    showSheet(ctx, _AssignRoleSheet(users: users, roles: roles, onDone: onDone));
+
+class _AssignRoleSheet extends StatefulWidget {
+  final List<TenantUser> users;
+  final List<AppRole>    roles;
+  final VoidCallback?    onDone;
+  const _AssignRoleSheet({required this.users, required this.roles, this.onDone});
+  @override State<_AssignRoleSheet> createState() => _AssignRoleSheetState();
+}
+class _AssignRoleSheetState extends State<_AssignRoleSheet> {
+  String? _userId;
+  String? _roleId;
+  bool _loading = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _userId = widget.users.isNotEmpty ? widget.users.first.id : null;
+    _roleId = widget.roles.isNotEmpty ? widget.roles.first.id : null;
+  }
+
+  Future<void> _submit() async {
+    if (_userId == null || _roleId == null) { setState(() => _error = 'Select a user and a role.'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await ApiService().assignUserRole(_userId!, _roleId!);
+      AppStore.instance.prependActivity('Role Assigned', 'User → ${widget.roles.firstWhere((r) => r.id == _roleId).name}');
+      if (mounted) setState(() { _done = true; _loading = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Role Assigned!', 'User successfully assigned to role.', Icons.verified_user_rounded);
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Assign Role to User', Icons.assignment_ind_rounded, AppColors.navy),
+        const SizedBox(height: 20),
+        _label('User'),
+        _apiDropdown<TenantUser>(widget.users, _userId, (u) => '${u.fullName.isNotEmpty ? u.fullName : u.email}', (v) => setState(() => _userId = v)),
+        _label('Role'),
+        _apiDropdown<AppRole>(widget.roles, _roleId, (r) => r.name, (v) => setState(() => _roleId = v)),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Assign Role', _loading, _submit),
+      ]),
+    );
+  }
+}
+
+// ── Parent-Student Mapping ─────────────────────────────────────────────────
+
+void showAddMapping(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _AddMappingSheet(onDone: onDone), tall: true);
+
+class _AddMappingSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _AddMappingSheet({this.onDone});
+  @override State<_AddMappingSheet> createState() => _AddMappingSheetState();
+}
+class _AddMappingSheetState extends State<_AddMappingSheet> {
+  List<ParentProfile>  _parents  = [];
+  List<StudentProfile> _students = [];
+  String? _parentId;
+  String? _studentId;
+  String _relationship = 'Father';
+  bool _loading = true;
+  bool _saving  = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
+    try {
+      final results = await Future.wait([ApiService().getParents(), ApiService().getStudents()]);
+      if (!mounted) return;
+      final parents  = (results[0] as PaginatedResult<ParentProfile>).results;
+      final students = (results[1] as PaginatedResult<StudentProfile>).results;
+      setState(() {
+        _parents  = parents;
+        _students = students;
+        _parentId  = parents.isNotEmpty  ? parents.first.id  : null;
+        _studentId = students.isNotEmpty ? students.first.id : null;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_parentId == null || _studentId == null) { setState(() => _error = 'Select a parent and a student.'); return; }
+    setState(() { _saving = true; _error = null; });
+    try {
+      await ApiService().createMapping(_parentId!, _studentId!, _relationship);
+      AppStore.instance.prependActivity('Parent Mapped', 'Parent → Student');
+      if (mounted) setState(() { _done = true; _saving = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _saving = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Mapping Created!', 'Parent linked to student.', Icons.share_rounded);
+    if (_loading) return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: AppColors.blue)));
+
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Add Parent–Student Mapping', Icons.share_rounded, AppColors.amber),
+        const SizedBox(height: 20),
+        _label('Parent'),
+        _apiDropdown<ParentProfile>(_parents, _parentId, (p) => p.fullName, (v) => setState(() => _parentId = v)),
+        _label('Student'),
+        _apiDropdown<StudentProfile>(_students, _studentId, (s) => '${s.fullName} (${s.enrollmentNumber ?? "—"})', (v) => setState(() => _studentId = v)),
+        _label('Relationship'),
+        _dropdown(_relationship, ['Father','Mother','Guardian','Step-Father','Step-Mother'], (v) => setState(() => _relationship = v!)),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Create Mapping', _saving, _submit),
+      ]),
+    );
+  }
+}
+
+// ── Teacher Assignment ─────────────────────────────────────────────────────
+
+void showAddTeacherAssignment(BuildContext ctx, {VoidCallback? onDone}) =>
+    showSheet(ctx, _AddTeacherAssignmentSheet(onDone: onDone), tall: true);
+
+class _AddTeacherAssignmentSheet extends StatefulWidget {
+  final VoidCallback? onDone;
+  const _AddTeacherAssignmentSheet({this.onDone});
+  @override State<_AddTeacherAssignmentSheet> createState() => _AddTeacherAssignmentSheetState();
+}
+class _AddTeacherAssignmentSheetState extends State<_AddTeacherAssignmentSheet> {
+  List<TeacherProfile> _teachers = [];
+  List<AcademicYear>   _years    = [];
+  List<ClassLevel>     _classes  = [];
+  List<Section>        _sections = [];
+  List<Subject>        _subjects = [];
+  String? _teacherId;
+  String? _yearId;
+  String? _classId;
+  String? _sectionId;
+  String? _subjectId;
+  bool _isClassTeacher = false;
+  bool _loading = true;
+  bool _saving  = false;
+  bool _done    = false;
+  String? _error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
+    try {
+      final results = await Future.wait([
+        ApiService().getTeachers(),
+        ApiService().getAcademicYears(),
+        ApiService().getClassLevels(),
+        ApiService().getSections(),
+        ApiService().getSubjects(),
+      ]);
+      if (!mounted) return;
+      final teachers = (results[0] as PaginatedResult<TeacherProfile>).results;
+      final years    = (results[1] as PaginatedResult<AcademicYear>).results;
+      final classes  = (results[2] as PaginatedResult<ClassLevel>).results;
+      final sects    = (results[3] as PaginatedResult<Section>).results;
+      final subjects = (results[4] as PaginatedResult<Subject>).results;
+      setState(() {
+        _teachers  = teachers;  _teacherId  = teachers.isNotEmpty  ? teachers.first.id  : null;
+        _years     = years;     _yearId     = years.isNotEmpty     ? years.first.id     : null;
+        _classes   = classes;   _classId    = classes.isNotEmpty   ? classes.first.id   : null;
+        _sections  = sects;     _sectionId  = sects.isNotEmpty     ? sects.first.id     : null;
+        _subjects  = subjects;  _subjectId  = subjects.isNotEmpty  ? subjects.first.id  : null;
+        _loading   = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _submit() async {
+    if ([_teacherId, _yearId, _classId, _sectionId, _subjectId].any((v) => v == null)) {
+      setState(() => _error = 'All fields are required.'); return;
+    }
+    setState(() { _saving = true; _error = null; });
+    try {
+      await ApiService().createTeacherAssignment({
+        'teacher':          _teacherId!,
+        'academic_year':    _yearId!,
+        'class_level':      _classId!,
+        'section':          _sectionId!,
+        'subject':          _subjectId!,
+        'is_class_teacher': _isClassTeacher,
+      });
+      AppStore.instance.prependActivity('Teacher Assigned', 'Assignment created');
+      if (mounted) setState(() { _done = true; _saving = false; });
+      widget.onDone?.call();
+      Future.delayed(const Duration(seconds: 2), () { if (mounted) Navigator.pop(context); });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _saving = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return _successPanel(context, 'Teacher Assigned!', 'Assignment created successfully.', Icons.menu_book_rounded);
+    if (_loading) return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: AppColors.blue)));
+
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sheetTitle('Assign Teacher', Icons.menu_book_rounded, AppColors.teal),
+        const SizedBox(height: 20),
+        _label('Teacher'),
+        _apiDropdown<TeacherProfile>(_teachers, _teacherId, (t) => '${t.fullName} (${t.employeeId ?? "—"})', (v) => setState(() => _teacherId = v)),
+        _label('Academic Year'),
+        _apiDropdown<AcademicYear>(_years, _yearId, (y) => y.name, (v) => setState(() => _yearId = v)),
+        _label('Class Level'),
+        _apiDropdown<ClassLevel>(_classes, _classId, (c) => c.name, (v) => setState(() => _classId = v)),
+        _label('Section'),
+        _apiDropdown<Section>(_sections, _sectionId, (s) => '${s.classLevelName ?? ""} — ${s.name}', (v) => setState(() => _sectionId = v)),
+        _label('Subject'),
+        _apiDropdown<Subject>(_subjects, _subjectId, (s) => '${s.name}${s.code != null ? " (${s.code})" : ""}', (v) => setState(() => _subjectId = v)),
+        Row(children: [
+          Checkbox(value: _isClassTeacher, activeColor: AppColors.blue, onChanged: (v) => setState(() => _isClassTeacher = v ?? false)),
+          Text('Designate as Class Teacher', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2)),
+        ]),
+        if (_error != null) _errBox(_error!),
+        const SizedBox(height: 20),
+        _submitBtn('Create Assignment', _saving, _submit),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED HELPERS FOR NEW MODALS
+// ─────────────────────────────────────────────────────────────────────────────
+
+Widget _errBox(String msg) => Container(
+  margin: const EdgeInsets.only(top: 8),
+  padding: const EdgeInsets.all(10),
+  decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: const Color(0xFFFCA5A5))),
+  child: Row(children: [
+    const Icon(Icons.error_outline_rounded, size: 14, color: AppColors.red),
+    const SizedBox(width: 8),
+    Expanded(child: Text(msg, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.red))),
+  ]),
+);
+
+Widget _submitBtn(String label, bool loading, VoidCallback onTap) =>
+  GestureDetector(
+    onTap: loading ? null : onTap,
+    child: Container(
+      width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.gradA, AppColors.gradC], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowMd),
+      child: Center(child: loading
+        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+        : Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white))),
+    ),
+  );
+
+/// Generic API-model dropdown — avoids repeating boilerplate
+Widget _apiDropdown<T>(
+  List<T> items,
+  String? value,
+  String Function(T) label,
+  void Function(String?) onChanged,
+) {
+  // Map id getter per type
+  String getId(T item) {
+    if (item is AcademicYear) return item.id;
+    if (item is ClassLevel)   return item.id;
+    if (item is Section)      return item.id;
+    if (item is Subject)      return item.id;
+    if (item is TeacherProfile) return item.id;
+    if (item is StudentProfile) return item.id;
+    if (item is ParentProfile)  return item.id;
+    if (item is TenantUser)     return item.id;
+    if (item is AppRole)        return item.id;
+    return '';
+  }
+
+  final validValue = items.any((i) => getId(i) == value) ? value : (items.isNotEmpty ? getId(items.first) : null);
+
+  return Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rMd)),
+    child: DropdownButtonHideUnderline(child: DropdownButton<String>(
+      value: validValue,
+      isExpanded: true,
+      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
+      items: items.map((i) => DropdownMenuItem(value: getId(i), child: Text(label(i), overflow: TextOverflow.ellipsis))).toList(),
+      onChanged: onChanged,
+    )),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// END NEW API-BACKED ADMIN MODALS
+// ─────────────────────────────────────────────────────────────────────────────

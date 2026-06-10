@@ -1,14 +1,30 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 
-const String kBaseUrl = 'http://187.127.139.208:8081';
+// ── Live server (always on — use this for real accounts) ──────────────────
+const String _kLiveServer = 'http://187.127.139.208:8081';
+
+// ── Local dev server (uncomment to switch) ─────────────────────────────────
+// const String _kLanIp = '192.168.1.79';  // your PC's IP
+
+String get kBaseUrl {
+  // Always use the live server so real accounts work
+  return _kLiveServer;
+
+  // ── Switch to local for development: ──────────────────────────────────────
+  // if (kIsWeb) return 'http://127.0.0.1:8000';
+  // if (Platform.isAndroid) return 'http://$_kLanIp:8000';
+  // return 'http://127.0.0.1:8000';
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TOKEN STORE  (in-memory; swap for flutter_secure_storage in production)
+// TOKEN STORE
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TokenStore {
@@ -42,6 +58,10 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Internal sentinel thrown when a token refresh succeeds mid-request.
+/// The HTTP layer catches this and retries the original request.
+class _TokenRefreshedException implements Exception {}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CORE HTTP CLIENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,8 +73,6 @@ class ApiService {
 
   final _client = http.Client();
 
-  // ── Headers ────────────────────────────────────────────────────────────────
-
   Map<String, String> _headers({bool auth = true}) {
     final h = <String, String>{'Content-Type': 'application/json'};
     if (auth && TokenStore.access != null) {
@@ -62,8 +80,6 @@ class ApiService {
     }
     return h;
   }
-
-  // ── URI builder ────────────────────────────────────────────────────────────
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {
     final base = Uri.parse('$kBaseUrl$path');
@@ -74,26 +90,32 @@ class ApiService {
     return base;
   }
 
-  // ── Response parser ────────────────────────────────────────────────────────
-
-  Future<dynamic> _parse(http.Response res) async {
-    if (res.statusCode == 401) {
+  Future<dynamic> _parse(http.Response res, {bool auth = true}) async {
+    if (res.statusCode == 401 && auth) {
       final ok = await _tryRefresh();
       if (!ok) {
         TokenStore.clear();
         throw ApiException('Session expired. Please log in again.', statusCode: 401);
       }
-      // Caller should retry — throw with 401 so callers know to retry once
-      throw ApiException('token_refreshed', statusCode: 401);
+      // Token refreshed — caller should retry. Throw a typed sentinel.
+      throw _TokenRefreshedException();
+    }
+    if (res.statusCode == 401 && !auth) {
+      // Login endpoint 401 — wrong credentials
+      String msg = 'Invalid email or password.';
+      try {
+        final b = jsonDecode(res.body);
+        if (b is Map && b['detail'] != null) msg = b['detail'].toString();
+      } catch (_) {}
+      throw ApiException(msg, statusCode: 401);
     }
     if (res.statusCode >= 400) {
       String msg = 'Error ${res.statusCode}';
       try {
         final b = jsonDecode(res.body);
         if (b is Map) {
-          // DRF often returns {"field": ["error"]} or {"detail": "..."}
-          if (b.containsKey('detail'))        msg = b['detail'].toString();
-          else if (b.containsKey('message'))  msg = b['message'].toString();
+          if (b.containsKey('detail'))             msg = b['detail'].toString();
+          else if (b.containsKey('message'))        msg = b['message'].toString();
           else if (b.containsKey('non_field_errors'))
             msg = (b['non_field_errors'] as List).join(' ');
           else {
@@ -107,8 +129,6 @@ class ApiService {
     if (res.body.isEmpty || res.statusCode == 204) return null;
     return jsonDecode(res.body);
   }
-
-  // ── Token refresh ──────────────────────────────────────────────────────────
 
   Future<bool> _tryRefresh() async {
     if (TokenStore.refresh == null) return false;
@@ -127,48 +147,109 @@ class ApiService {
     return false;
   }
 
-  // ── HTTP verbs ─────────────────────────────────────────────────────────────
-
   Future<dynamic> get(String path,
       {Map<String, dynamic>? query, bool auth = true}) async {
-    final res = await _client.get(_uri(path, query), headers: _headers(auth: auth));
-    return _parse(res);
+    try {
+      final res = await _client.get(_uri(path, query), headers: _headers(auth: auth));
+      return _parse(res, auth: auth);
+    } on _TokenRefreshedException {
+      // Retry once with new token
+      final res = await _client.get(_uri(path, query), headers: _headers(auth: auth));
+      return _parse(res, auth: auth);
+    }
   }
 
   Future<dynamic> post(String path, Map<String, dynamic> body,
       {bool auth = true}) async {
-    final res = await _client.post(
-      _uri(path),
-      headers: _headers(auth: auth),
-      body: jsonEncode(body),
-    );
-    return _parse(res);
+    try {
+      final res = await _client.post(_uri(path), headers: _headers(auth: auth), body: jsonEncode(body));
+      return _parse(res, auth: auth);
+    } on _TokenRefreshedException {
+      final res = await _client.post(_uri(path), headers: _headers(auth: auth), body: jsonEncode(body));
+      return _parse(res, auth: auth);
+    }
   }
 
   Future<dynamic> put(String path, Map<String, dynamic> body) async {
-    final res = await _client.put(_uri(path), headers: _headers(), body: jsonEncode(body));
-    return _parse(res);
+    try {
+      final res = await _client.put(_uri(path), headers: _headers(), body: jsonEncode(body));
+      return _parse(res);
+    } on _TokenRefreshedException {
+      final res = await _client.put(_uri(path), headers: _headers(), body: jsonEncode(body));
+      return _parse(res);
+    }
   }
 
   Future<dynamic> patch(String path, Map<String, dynamic> body) async {
-    final res = await _client.patch(_uri(path), headers: _headers(), body: jsonEncode(body));
-    return _parse(res);
+    try {
+      final res = await _client.patch(_uri(path), headers: _headers(), body: jsonEncode(body));
+      return _parse(res);
+    } on _TokenRefreshedException {
+      final res = await _client.patch(_uri(path), headers: _headers(), body: jsonEncode(body));
+      return _parse(res);
+    }
   }
 
   Future<void> delete(String path) async {
-    final res = await _client.delete(_uri(path), headers: _headers());
-    await _parse(res);
+    try {
+      final res = await _client.delete(_uri(path), headers: _headers());
+      await _parse(res);
+    } on _TokenRefreshedException {
+      final res = await _client.delete(_uri(path), headers: _headers());
+      await _parse(res);
+    }
+  }
+
+  // ── FALLBACK HELPERS ─────────────────────────────────────────────────────
+
+  Future<dynamic> _getWithFallback(String path, {String? fallback, Map<String, dynamic>? query, bool auth = true}) async {
+    try {
+      return await get(path, query: query, auth: auth);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 && fallback != null) return await get(fallback, query: query, auth: auth);
+      rethrow;
+    }
+  }
+
+  Future<dynamic> _postWithFallback(String path, Map<String, dynamic> body, {String? fallback, bool auth = true}) async {
+    try {
+      return await post(path, body, auth: auth);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 && fallback != null) return await post(fallback, body, auth: auth);
+      rethrow;
+    }
+  }
+
+  Future<dynamic> _patchWithFallback(String path, Map<String, dynamic> body, {String? fallback}) async {
+    try {
+      return await patch(path, body);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 && fallback != null) return await patch(fallback, body);
+      rethrow;
+    }
+  }
+
+  Future<void> _deleteWithFallback(String path, {String? fallback}) async {
+    try {
+      await delete(path);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 && fallback != null) {
+        await delete(fallback);
+        return;
+      }
+      rethrow;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // AUTH  (/api/v1/auth/)
+  // AUTH
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// POST /api/v1/auth/login/   → TokenObtainPair
-  Future<AuthResult> login(String username, String password) async {
+  Future<AuthResult> login(String email, String password) async {
+    // Backend uses EMAIL as USERNAME_FIELD (simplejwt TokenObtainPairView)
     final d = await post(
       '/api/v1/auth/login/',
-      {'username': username, 'password': password},
+      {'email': email, 'password': password},
       auth: false,
     );
     final r = AuthResult.fromJson(d);
@@ -176,288 +257,386 @@ class ApiService {
     return r;
   }
 
-  /// POST /api/v1/auth/refresh/  → TokenRefresh
-  Future<void> refreshToken() async {
-    await _tryRefresh();
-  }
-
-  /// GET /api/v1/auth/me/   → User
+  /// GET /api/v1/auth/me/
   Future<AuthMe> getMe() async {
     final d = await get('/api/v1/auth/me/');
     return AuthMe.fromJson(d);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // PROFILES  (/api/v1/profiles/)
-  // ─────────────────────────────────────────────────────────────────────────
-
   /// GET /api/v1/profiles/me/
-  Future<ProfileMe> getMyProfile() async {
+  Future<ProfileContext> getProfileContext() async {
     final d = await get('/api/v1/profiles/me/');
-    return ProfileMe.fromJson(d);
+    return ProfileContext.fromJson(d);
   }
 
-  // ── Students ───────────────────────────────────────────────────────────────
+  /// Legacy alias
+  Future<ProfileMe> getMyProfile() async {
+    try {
+      final ctx = await getProfileContext();
+      return ProfileMe(
+        id: ctx.identity.id,
+        displayName: ctx.identity.fullName,
+        role: ctx.roles.isNotEmpty ? ctx.roles.first : '',
+        schoolName: null,
+        idLabel: null,
+        raw: {},
+      );
+    } catch (_) {
+      final me = await getMe();
+      return ProfileMe(
+        id: me.id,
+        displayName: me.fullName,
+        role: me.email,
+        schoolName: me.schoolName,
+        idLabel: null,
+        raw: {},
+      );
+    }
+  }
 
-  /// GET /api/v1/profiles/students/
-  Future<PaginatedResult<StudentProfile>> getStudents({
-    int page = 1, String? search,
-  }) async {
+  // ─────────────────────────────────────────────────────────────────────────
+  // USERS  /api/v1/accounts/users/
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<PaginatedResult<TenantUser>> getUsers({int page = 1}) async {
+    final d = await _getWithFallback('/api/v1/users/', fallback: '/api/v1/accounts/users/', query: {'page': page});
+    return PaginatedResult.fromJson(d, TenantUser.fromJson);
+  }
+
+  Future<TenantUser> createUser(Map<String, dynamic> body) async {
+    final d = await _postWithFallback(
+      '/api/v1/users/', 
+      body,
+      fallback: '/api/v1/accounts/users/',
+    );
+    return TenantUser.fromJson(d);
+  }
+
+  Future<TenantUser> patchUser(String id, Map<String, dynamic> body) async {
+    final d = await _patchWithFallback('/api/v1/users/$id/', body, fallback: '/api/v1/accounts/users/$id/');
+    return TenantUser.fromJson(d);
+  }
+
+  Future<void> deleteUser(String id) => _deleteWithFallback('/api/v1/users/$id/', fallback: '/api/v1/accounts/users/$id/');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PROFILES  /api/v1/profiles/
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<PaginatedResult<StudentProfile>> getStudents({int page = 1, String? search}) async {
     final q = <String, dynamic>{'page': page};
     if (search != null && search.isNotEmpty) q['search'] = search;
-    final d = await get('/api/v1/profiles/students/', query: q);
+    final d = await _getWithFallback('/api/v1/profiles/students/', fallback: '/api/v1/students/', query: q);
     return PaginatedResult.fromJson(d, StudentProfile.fromJson);
   }
 
-  /// POST /api/v1/profiles/students/
   Future<StudentProfile> createStudent(Map<String, dynamic> body) async {
-    final d = await post('/api/v1/profiles/students/', body);
+    final d = await _postWithFallback('/api/v1/profiles/students/', body, fallback: '/api/v1/students/');
     return StudentProfile.fromJson(d);
   }
 
-  /// GET /api/v1/profiles/students/{id}/
-  Future<StudentProfile> getStudent(int id) async {
-    final d = await get('/api/v1/profiles/students/$id/');
+  Future<StudentProfile> patchStudent(String id, Map<String, dynamic> body) async {
+    final d = await _patchWithFallback('/api/v1/profiles/students/$id/', body, fallback: '/api/v1/students/$id/');
     return StudentProfile.fromJson(d);
   }
 
-  /// PATCH /api/v1/profiles/students/{id}/
-  Future<StudentProfile> patchStudent(int id, Map<String, dynamic> body) async {
-    final d = await patch('/api/v1/profiles/students/$id/', body);
-    return StudentProfile.fromJson(d);
-  }
+  Future<void> deleteStudent(String id) => _deleteWithFallback('/api/v1/profiles/students/$id/', fallback: '/api/v1/students/$id/');
 
-  /// DELETE /api/v1/profiles/students/{id}/
-  Future<void> deleteStudent(int id) => delete('/api/v1/profiles/students/$id/');
-
-  // ── Teachers ───────────────────────────────────────────────────────────────
-
-  /// GET /api/v1/profiles/teachers/
   Future<PaginatedResult<TeacherProfile>> getTeachers({int page = 1}) async {
     final d = await get('/api/v1/profiles/teachers/', query: {'page': page});
     return PaginatedResult.fromJson(d, TeacherProfile.fromJson);
   }
 
-  /// POST /api/v1/profiles/teachers/
   Future<TeacherProfile> createTeacher(Map<String, dynamic> body) async {
-    final d = await post('/api/v1/profiles/teachers/', body);
+    final d = await _postWithFallback('/api/v1/profiles/teachers/', body, fallback: '/api/v1/teachers/');
     return TeacherProfile.fromJson(d);
   }
 
-  /// PATCH /api/v1/profiles/teachers/{id}/
-  Future<TeacherProfile> patchTeacher(int id, Map<String, dynamic> body) async {
-    final d = await patch('/api/v1/profiles/teachers/$id/', body);
+  Future<TeacherProfile> patchTeacher(String id, Map<String, dynamic> body) async {
+    final d = await _patchWithFallback('/api/v1/profiles/teachers/$id/', body, fallback: '/api/v1/teachers/$id/');
     return TeacherProfile.fromJson(d);
   }
 
-  /// DELETE /api/v1/profiles/teachers/{id}/
-  Future<void> deleteTeacher(int id) => delete('/api/v1/profiles/teachers/$id/');
+  Future<void> deleteTeacher(String id) => _deleteWithFallback('/api/v1/profiles/teachers/$id/', fallback: '/api/v1/teachers/$id/');
 
-  // ── Parents ────────────────────────────────────────────────────────────────
-
-  /// GET /api/v1/profiles/parents/
   Future<PaginatedResult<ParentProfile>> getParents({int page = 1}) async {
-    final d = await get('/api/v1/profiles/parents/', query: {'page': page});
+    final d = await _getWithFallback('/api/v1/profiles/parents/', fallback: '/api/v1/parents/', query: {'page': page});
     return PaginatedResult.fromJson(d, ParentProfile.fromJson);
   }
 
-  /// POST /api/v1/profiles/parents/
   Future<ParentProfile> createParent(Map<String, dynamic> body) async {
-    final d = await post('/api/v1/profiles/parents/', body);
+    final d = await _postWithFallback('/api/v1/profiles/parents/', body, fallback: '/api/v1/parents/');
     return ParentProfile.fromJson(d);
   }
 
-  /// PATCH /api/v1/profiles/parents/{id}/
-  Future<ParentProfile> patchParent(int id, Map<String, dynamic> body) async {
-    final d = await patch('/api/v1/profiles/parents/$id/', body);
+  Future<ParentProfile> patchParent(String id, Map<String, dynamic> body) async {
+    final d = await _patchWithFallback('/api/v1/profiles/parents/$id/', body, fallback: '/api/v1/parents/$id/');
     return ParentProfile.fromJson(d);
   }
 
-  /// DELETE /api/v1/profiles/parents/{id}/
-  Future<void> deleteParent(int id) => delete('/api/v1/profiles/parents/$id/');
+  Future<void> deleteParent(String id) => _deleteWithFallback('/api/v1/profiles/parents/$id/', fallback: '/api/v1/parents/$id/');
 
-  // ── Parent-Student Mappings ────────────────────────────────────────────────
-
-  /// GET /api/v1/profiles/parent-student-mappings/
-  Future<PaginatedResult<ParentStudentMapping>> getParentStudentMappings({
-    int page = 1,
-  }) async {
-    final d = await get('/api/v1/profiles/parent-student-mappings/', query: {'page': page});
+  Future<PaginatedResult<ParentStudentMapping>> getParentStudentMappings({int page = 1}) async {
+    final d = await _getWithFallback('/api/v1/profiles/parent-student-mappings/', fallback: '/api/v1/parent-student-mappings/', query: {'page': page});
     return PaginatedResult.fromJson(d, ParentStudentMapping.fromJson);
   }
 
-  /// POST /api/v1/profiles/parent-student-mappings/
-  Future<ParentStudentMapping> createMapping(int parentId, int studentId) async {
-    final d = await post('/api/v1/profiles/parent-student-mappings/', {
+  Future<ParentStudentMapping> createMapping(
+    String parentId, String studentId, String relationship,
+  ) async {
+    final d = await _postWithFallback('/api/v1/profiles/parent-student-mappings/', {
       'parent': parentId,
       'student': studentId,
-    });
+      'relationship': relationship,
+    }, fallback: '/api/v1/parent-student-mappings/');
     return ParentStudentMapping.fromJson(d);
   }
 
-  /// DELETE /api/v1/profiles/parent-student-mappings/{id}/
-  Future<void> deleteMapping(int id) =>
-      delete('/api/v1/profiles/parent-student-mappings/$id/');
+  Future<void> deleteMapping(String id) =>
+      _deleteWithFallback('/api/v1/profiles/parent-student-mappings/$id/', fallback: '/api/v1/parent-student-mappings/$id/');
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ACADEMICS  (/api/v1/academics/)
+  // ACADEMICS  /api/v1/academics/
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Enrollments ────────────────────────────────────────────────────────────
+  Future<PaginatedResult<AcademicYear>> getAcademicYears({int page = 1}) async {
+    final d = await _getWithFallback('/api/v1/academics/academic-years/', fallback: '/api/v1/academic-years/', query: {'page': page});
+    return PaginatedResult.fromJson(d, AcademicYear.fromJson);
+  }
 
-  /// GET /api/v1/academics/enrollments/
+  Future<AcademicYear> createAcademicYear(Map<String, dynamic> body) async {
+    final d = await _postWithFallback('/api/v1/academics/academic-years/', body, fallback: '/api/v1/academic-years/');
+    return AcademicYear.fromJson(d);
+  }
+
+  Future<AcademicYear> patchAcademicYear(String id, Map<String, dynamic> body) async {
+    final d = await _patchWithFallback('/api/v1/academics/academic-years/$id/', body, fallback: '/api/v1/academic-years/$id/');
+    return AcademicYear.fromJson(d);
+  }
+
+  Future<void> deleteAcademicYear(String id) => _deleteWithFallback('/api/v1/academics/academic-years/$id/', fallback: '/api/v1/academic-years/$id/');
+
+  Future<PaginatedResult<ClassLevel>> getClassLevels({int page = 1}) async {
+    final d = await _getWithFallback('/api/v1/academics/class-levels/', fallback: '/api/v1/class-levels/', query: {'page': page});
+    return PaginatedResult.fromJson(d, ClassLevel.fromJson);
+  }
+
+  Future<ClassLevel> createClassLevel(Map<String, dynamic> body) async {
+    final d = await _postWithFallback('/api/v1/academics/class-levels/', body, fallback: '/api/v1/class-levels/');
+    return ClassLevel.fromJson(d);
+  }
+
+  Future<void> deleteClassLevel(String id) => _deleteWithFallback('/api/v1/academics/class-levels/$id/', fallback: '/api/v1/class-levels/$id/');
+
+  Future<PaginatedResult<Section>> getSections({int page = 1, String? classLevelId}) async {
+    final q = <String, dynamic>{'page': page};
+    if (classLevelId != null) q['class_level'] = classLevelId;
+    final d = await _getWithFallback('/api/v1/academics/sections/', fallback: '/api/v1/sections/', query: q);
+    return PaginatedResult.fromJson(d, Section.fromJson);
+  }
+
+  Future<Section> createSection(Map<String, dynamic> body) async {
+    final d = await _postWithFallback('/api/v1/academics/sections/', body, fallback: '/api/v1/sections/');
+    return Section.fromJson(d);
+  }
+
+  Future<void> deleteSection(String id) => _deleteWithFallback('/api/v1/academics/sections/$id/', fallback: '/api/v1/sections/$id/');
+
+  Future<PaginatedResult<Subject>> getSubjects({int page = 1}) async {
+    final d = await _getWithFallback('/api/v1/academics/subjects/', fallback: '/api/v1/subjects/', query: {'page': page});
+    return PaginatedResult.fromJson(d, Subject.fromJson);
+  }
+
+  Future<Subject> createSubject(Map<String, dynamic> body) async {
+    final d = await _postWithFallback('/api/v1/academics/subjects/', body, fallback: '/api/v1/subjects/');
+    return Subject.fromJson(d);
+  }
+
+  Future<void> deleteSubject(String id) => _deleteWithFallback('/api/v1/academics/subjects/$id/', fallback: '/api/v1/subjects/$id/');
+
   Future<PaginatedResult<Enrollment>> getEnrollments({
-    int page = 1, String? classId,
+    int page = 1, String? studentId, String? status,
   }) async {
     final q = <String, dynamic>{'page': page};
-    if (classId != null) q['class_id'] = classId;
-    final d = await get('/api/v1/academics/enrollments/', query: q);
+    if (studentId != null) q['student'] = studentId;
+    if (status != null)    q['status']  = status;
+    final d = await _getWithFallback('/api/v1/academics/enrollments/', fallback: '/api/v1/enrollments/', query: q);
     return PaginatedResult.fromJson(d, Enrollment.fromJson);
   }
 
-  /// POST /api/v1/academics/enrollments/
   Future<Enrollment> createEnrollment(Map<String, dynamic> body) async {
-    final d = await post('/api/v1/academics/enrollments/', body);
+    final d = await _postWithFallback('/api/v1/academics/enrollments/', body, fallback: '/api/v1/enrollments/');
     return Enrollment.fromJson(d);
   }
 
-  /// POST /api/v1/academics/enrollments/bulk-promote/
-  Future<void> bulkPromote(Map<String, dynamic> body) async {
-    await post('/api/v1/academics/enrollments/bulk-promote/', body);
+  Future<void> deleteEnrollment(String id) => _deleteWithFallback('/api/v1/academics/enrollments/$id/', fallback: '/api/v1/enrollments/$id/');
+
+  Future<String> bulkPromote({
+    required List<String> studentIds,
+    required String targetAcademicYearId,
+    required String targetClassLevelId,
+    required String targetSectionId,
+  }) async {
+    final d = await _postWithFallback('/api/v1/academics/enrollments/bulk-promote/', {
+      'student_ids': studentIds,
+      'target_academic_year_id': targetAcademicYearId,
+      'target_class_level_id': targetClassLevelId,
+      'target_section_id': targetSectionId,
+    }, fallback: '/api/v1/enrollments/bulk-promote/');
+    return d?['detail'] ?? 'Promoted successfully';
   }
 
-  // ── Teacher Assignments ────────────────────────────────────────────────────
-
-  /// GET /api/v1/academics/teacher-assignments/
   Future<PaginatedResult<TeacherAssignment>> getTeacherAssignments({
-    int page = 1,
+    int page = 1, String? teacherId, String? status,
   }) async {
-    final d = await get('/api/v1/academics/teacher-assignments/', query: {'page': page});
+    final q = <String, dynamic>{'page': page};
+    if (teacherId != null) q['teacher'] = teacherId;
+    if (status != null)    q['status']  = status;
+    final d = await _getWithFallback('/api/v1/academics/teacher-assignments/', fallback: '/api/v1/teacher-assignments/', query: q);
     return PaginatedResult.fromJson(d, TeacherAssignment.fromJson);
   }
 
-  /// POST /api/v1/academics/teacher-assignments/
   Future<TeacherAssignment> createTeacherAssignment(Map<String, dynamic> body) async {
-    final d = await post('/api/v1/academics/teacher-assignments/', body);
+    final d = await _postWithFallback('/api/v1/academics/teacher-assignments/', body, fallback: '/api/v1/teacher-assignments/');
     return TeacherAssignment.fromJson(d);
   }
 
-  /// DELETE /api/v1/academics/teacher-assignments/{id}/
-  Future<void> deleteTeacherAssignment(int id) =>
-      delete('/api/v1/academics/teacher-assignments/$id/');
+  Future<void> deleteTeacherAssignment(String id) =>
+      _deleteWithFallback('/api/v1/academics/teacher-assignments/$id/', fallback: '/api/v1/teacher-assignments/$id/');
 
   // ─────────────────────────────────────────────────────────────────────────
-  // OPERATIONS  (/api/v1/operations/)
+  // OPERATIONS  /api/v1/operations/
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Attendance ─────────────────────────────────────────────────────────────
-
-  /// GET /api/v1/operations/attendance/
   Future<PaginatedResult<AttendanceRecord>> getAttendance({
-    int page = 1, String? studentId, String? date,
+    int page = 1, String? studentId, String? date, String? sectionId,
   }) async {
     final q = <String, dynamic>{'page': page};
     if (studentId != null) q['student'] = studentId;
     if (date != null)      q['date']    = date;
-    final d = await get('/api/v1/operations/attendance/', query: q);
+    if (sectionId != null) q['section'] = sectionId;
+    final d = await _getWithFallback('/api/v1/operations/attendance/', fallback: '/api/v1/attendance/', query: q);
     return PaginatedResult.fromJson(d, AttendanceRecord.fromJson);
   }
 
-  /// POST /api/v1/operations/attendance/bulk-record/
-  Future<void> bulkRecordAttendance(List<Map<String, dynamic>> records) async {
-    await post('/api/v1/operations/attendance/bulk-record/', {'records': records});
+  /// Bulk record attendance — exactly matches BulkAttendanceSerializer
+  Future<String> bulkRecordAttendance({
+    required String academicYearId,
+    required String classLevelId,
+    required String sectionId,
+    required String date,
+    required List<Map<String, dynamic>> records,
+  }) async {
+    final d = await _postWithFallback('/api/v1/operations/attendance/bulk-record/', {
+      'academic_year_id': academicYearId,
+      'class_level_id':   classLevelId,
+      'section_id':       sectionId,
+      'date':             date,
+      'records':          records,
+    }, fallback: '/api/v1/attendance/bulk-record/');
+    return d?['detail'] ?? 'Attendance recorded';
   }
 
-  // ── Exams ──────────────────────────────────────────────────────────────────
-
-  /// GET /api/v1/operations/exams/
   Future<PaginatedResult<Exam>> getExams({int page = 1}) async {
-    final d = await get('/api/v1/operations/exams/', query: {'page': page});
+    final d = await _getWithFallback('/api/v1/operations/exams/', fallback: '/api/v1/exams/', query: {'page': page});
     return PaginatedResult.fromJson(d, Exam.fromJson);
   }
 
-  /// POST /api/v1/operations/exams/
   Future<Exam> createExam(Map<String, dynamic> body) async {
-    final d = await post('/api/v1/operations/exams/', body);
+    final d = await _postWithFallback('/api/v1/operations/exams/', body, fallback: '/api/v1/exams/');
     return Exam.fromJson(d);
   }
 
-  /// PATCH /api/v1/operations/exams/{id}/
-  Future<Exam> patchExam(int id, Map<String, dynamic> body) async {
-    final d = await patch('/api/v1/operations/exams/$id/', body);
+  Future<Exam> patchExam(String id, Map<String, dynamic> body) async {
+    final d = await _patchWithFallback('/api/v1/operations/exams/$id/', body, fallback: '/api/v1/exams/$id/');
     return Exam.fromJson(d);
   }
 
-  /// DELETE /api/v1/operations/exams/{id}/
-  Future<void> deleteExam(int id) => delete('/api/v1/operations/exams/$id/');
+  Future<void> deleteExam(String id) => _deleteWithFallback('/api/v1/operations/exams/$id/', fallback: '/api/v1/exams/$id/');
 
-  // ── Grades ─────────────────────────────────────────────────────────────────
-
-  /// GET /api/v1/operations/grades/
   Future<PaginatedResult<StudentGrade>> getGrades({
-    int page = 1, String? studentId, String? examId,
+    int page = 1, String? studentId, String? examId, String? subjectId,
   }) async {
     final q = <String, dynamic>{'page': page};
     if (studentId != null) q['student'] = studentId;
     if (examId != null)    q['exam']    = examId;
-    final d = await get('/api/v1/operations/grades/', query: q);
+    if (subjectId != null) q['subject'] = subjectId;
+    final d = await _getWithFallback('/api/v1/operations/grades/', fallback: '/api/v1/grades/', query: q);
     return PaginatedResult.fromJson(d, StudentGrade.fromJson);
   }
 
-  /// POST /api/v1/operations/grades/bulk-submit/
-  Future<void> bulkSubmitGrades(List<Map<String, dynamic>> grades) async {
-    await post('/api/v1/operations/grades/bulk-submit/', {'grades': grades});
+  /// Bulk submit grades — exactly matches BulkGradeSubmitSerializer
+  Future<String> bulkSubmitGrades({
+    required String examId,
+    required String subjectId,
+    required String sectionId,
+    required List<Map<String, dynamic>> records,
+  }) async {
+    final d = await post('/api/v1/operations/grades/bulk-submit/', {
+      'exam_id':    examId,
+      'subject_id': subjectId,
+      'section_id': sectionId,
+      'records':    records,
+    });
+    return d?['detail'] ?? 'Grades submitted';
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // ACCOUNTS  (/api/v1/accounts/)
+  // ACCOUNTS  /api/v1/accounts/
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// GET /api/v1/accounts/permissions/
-  Future<PaginatedResult<AppPermission>> getPermissions({int page = 1}) async {
-    final d = await get('/api/v1/accounts/permissions/', query: {'page': page});
-    return PaginatedResult.fromJson(d, AppPermission.fromJson);
+  Future<List<AppPermission>> getPermissions() async {
+    final d = await _getWithFallback('/api/v1/accounts/permissions/', fallback: '/api/v1/permissions/');
+    if (d is List) return d.whereType<Map<String, dynamic>>().map(AppPermission.fromJson).toList();
+    return PaginatedResult.fromJson(d, AppPermission.fromJson).results;
   }
 
-  /// GET /api/v1/accounts/roles/
   Future<PaginatedResult<AppRole>> getRoles({int page = 1}) async {
-    final d = await get('/api/v1/accounts/roles/', query: {'page': page});
+    final d = await _getWithFallback('/api/v1/accounts/roles/', fallback: '/api/v1/roles/', query: {'page': page});
     return PaginatedResult.fromJson(d, AppRole.fromJson);
   }
 
-  /// POST /api/v1/accounts/roles/
   Future<AppRole> createRole(Map<String, dynamic> body) async {
-    final d = await post('/api/v1/accounts/roles/', body);
+    final d = await _postWithFallback('/api/v1/accounts/roles/', body, fallback: '/api/v1/roles/');
     return AppRole.fromJson(d);
   }
 
-  /// DELETE /api/v1/accounts/roles/{id}/
-  Future<void> deleteRole(int id) => delete('/api/v1/accounts/roles/$id/');
+  Future<AppRole> patchRole(String id, Map<String, dynamic> body) async {
+    final d = await _patchWithFallback('/api/v1/accounts/roles/$id/', body, fallback: '/api/v1/roles/$id/');
+    return AppRole.fromJson(d);
+  }
 
-  /// GET /api/v1/accounts/user-roles/
-  Future<PaginatedResult<UserRoleAssignment>> getUserRoles({int page = 1}) async {
-    final d = await get('/api/v1/accounts/user-roles/', query: {'page': page});
+  Future<void> deleteRole(String id) => _deleteWithFallback('/api/v1/accounts/roles/$id/', fallback: '/api/v1/roles/$id/');
+
+  Future<PaginatedResult<UserRoleAssignment>> getUserRoles({
+    int page = 1, String? userId, String? roleId,
+  }) async {
+    final q = <String, dynamic>{'page': page};
+    if (userId != null) q['user'] = userId;
+    if (roleId != null) q['role'] = roleId;
+    final d = await _getWithFallback('/api/v1/accounts/user-roles/', fallback: '/api/v1/user-roles/', query: q);
     return PaginatedResult.fromJson(d, UserRoleAssignment.fromJson);
   }
 
-  /// POST /api/v1/accounts/user-roles/
-  Future<UserRoleAssignment> assignUserRole(int userId, int roleId) async {
-    final d = await post('/api/v1/accounts/user-roles/', {
+  Future<UserRoleAssignment> assignUserRole(String userId, String roleId) async {
+    final d = await _postWithFallback('/api/v1/accounts/user-roles/', {
       'user': userId,
       'role': roleId,
-    });
+    }, fallback: '/api/v1/user-roles/');
     return UserRoleAssignment.fromJson(d);
   }
 
-  /// DELETE /api/v1/accounts/user-roles/{id}/
-  Future<void> removeUserRole(int id) => delete('/api/v1/accounts/user-roles/$id/');
+  Future<UserRoleAssignment> createUserRole(Map<String, dynamic> body) async {
+    final d = await _postWithFallback('/api/v1/accounts/user-roles/', body, fallback: '/api/v1/user-roles/');
+    return UserRoleAssignment.fromJson(d);
+  }
+
+  Future<void> removeUserRole(String id) => _deleteWithFallback('/api/v1/accounts/user-roles/$id/', fallback: '/api/v1/user-roles/$id/');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MODELS
+// MODELS  —  All IDs are String (UUID) to match backend
 // ─────────────────────────────────────────────────────────────────────────────
-
-// ── Auth ───────────────────────────────────────────────────────────────────
 
 class AuthResult {
   final String access;
@@ -468,41 +647,116 @@ class AuthResult {
 }
 
 class AuthMe {
-  final int    id;
-  final String username;
-  final String email;
-  final String role;
-  final String? firstName;
-  final String? lastName;
+  final String  id;
+  final String  email;
+  final String  firstName;
+  final String  lastName;
+  final String? schoolId;
+  final String? schoolName;
+  final String? schoolSubdomain;
+  final bool    isStaff;
 
   AuthMe({
     required this.id,
-    required this.username,
     required this.email,
-    required this.role,
-    this.firstName,
-    this.lastName,
+    required this.firstName,
+    required this.lastName,
+    this.schoolId,
+    this.schoolName,
+    this.schoolSubdomain,
+    this.isStaff = false,
   });
 
-  String get fullName =>
-      [firstName, lastName].where((s) => s != null && s!.isNotEmpty).join(' ');
+  String get fullName => '$firstName $lastName'.trim();
 
   factory AuthMe.fromJson(Map<String, dynamic> j) => AuthMe(
-        id:        j['id'] ?? 0,
-        username:  j['username'] ?? '',
-        email:     j['email'] ?? '',
-        role:      (j['role'] ?? j['user_type'] ?? '').toString().toLowerCase(),
-        firstName: j['first_name'],
-        lastName:  j['last_name'],
+        id:              j['id']?.toString() ?? '',
+        email:           j['email'] ?? '',
+        firstName:       j['first_name'] ?? '',
+        lastName:        j['last_name'] ?? '',
+        schoolId:        j['school']?.toString(),
+        schoolName:      j['school_name']?.toString(),
+        schoolSubdomain: j['school_subdomain']?.toString(),
+        isStaff:         j['is_staff'] == true,
       );
 }
 
-// ── Profiles ───────────────────────────────────────────────────────────────
+class ProfileContext {
+  final ProfileIdentity identity;
+  final List<String>    roles;
+  final bool            isSuperuser;
+  final ProfileLinks    profiles;
 
+  ProfileContext({
+    required this.identity,
+    required this.roles,
+    required this.isSuperuser,
+    required this.profiles,
+  });
+
+  factory ProfileContext.fromJson(Map<String, dynamic> j) => ProfileContext(
+        identity:    ProfileIdentity.fromJson(j['identity'] ?? {}),
+        roles:       (j['roles'] as List? ?? []).map((e) => e.toString()).toList(),
+        isSuperuser: j['is_superuser'] == true,
+        profiles:    ProfileLinks.fromJson(j['profiles'] ?? {}),
+      );
+}
+
+class ProfileIdentity {
+  final String  id;
+  final String  email;
+  final String  firstName;
+  final String  lastName;
+  final String? schoolId;
+
+  ProfileIdentity({
+    required this.id,
+    required this.email,
+    required this.firstName,
+    required this.lastName,
+    this.schoolId,
+  });
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory ProfileIdentity.fromJson(Map<String, dynamic> j) => ProfileIdentity(
+        id:        j['id']?.toString() ?? '',
+        email:     j['email'] ?? '',
+        firstName: j['first_name'] ?? '',
+        lastName:  j['last_name'] ?? '',
+        schoolId:  j['school_id']?.toString(),
+      );
+}
+
+class ProfileLinks {
+  final ProfileLink student;
+  final ProfileLink teacher;
+  final ProfileLink parent;
+
+  ProfileLinks({required this.student, required this.teacher, required this.parent});
+
+  factory ProfileLinks.fromJson(Map<String, dynamic> j) => ProfileLinks(
+        student: ProfileLink.fromJson(j['student'] ?? {}),
+        teacher: ProfileLink.fromJson(j['teacher'] ?? {}),
+        parent:  ProfileLink.fromJson(j['parent']  ?? {}),
+      );
+}
+
+class ProfileLink {
+  final bool    exists;
+  final String? id;
+  ProfileLink({required this.exists, this.id});
+  factory ProfileLink.fromJson(Map<String, dynamic> j) => ProfileLink(
+        exists: j['exists'] == true,
+        id:     j['id']?.toString(),
+      );
+}
+
+/// Legacy ProfileMe kept so existing screens compile unchanged
 class ProfileMe {
-  final int    id;
-  final String displayName;
-  final String role;
+  final String  id;
+  final String  displayName;
+  final String  role;
   final String? schoolName;
   final String? idLabel;
   final Map<String, dynamic> raw;
@@ -515,21 +769,6 @@ class ProfileMe {
     this.idLabel,
     required this.raw,
   });
-
-  factory ProfileMe.fromJson(Map<String, dynamic> j) {
-    final u     = j['user'] as Map<String, dynamic>? ?? j;
-    final first = (u['first_name'] ?? '').toString();
-    final last  = (u['last_name']  ?? '').toString();
-    final name  = '$first $last'.trim();
-    return ProfileMe(
-      id:          j['id'] ?? 0,
-      displayName: name.isNotEmpty ? name : (u['username'] ?? 'User').toString(),
-      role:        (j['role'] ?? j['user_type'] ?? u['role'] ?? '').toString(),
-      schoolName:  j['school']?['name'] ?? j['school_name'],
-      idLabel:     (j['employee_id'] ?? j['student_id'] ?? j['staff_id'])?.toString(),
-      raw:         j,
-    );
-  }
 }
 
 // ── Pagination ─────────────────────────────────────────────────────────────
@@ -540,64 +779,82 @@ class PaginatedResult<T> {
   final String? previous;
   final List<T> results;
 
-  PaginatedResult({
-    required this.count,
-    this.next,
-    this.previous,
-    required this.results,
-  });
-
+  PaginatedResult({required this.count, this.next, this.previous, required this.results});
   bool get hasMore => next != null;
 
-  factory PaginatedResult.fromJson(
-      Map<String, dynamic> j, T Function(Map<String, dynamic>) fromJson) {
-    final list = (j['results'] as List? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .map(fromJson)
-        .toList();
-    return PaginatedResult(
-      count:    j['count'] ?? list.length,
-      next:     j['next'],
-      previous: j['previous'],
-      results:  list,
-    );
+  factory PaginatedResult.fromJson(dynamic raw, T Function(Map<String, dynamic>) fromJson) {
+    if (raw is List) {
+      final list = raw.whereType<Map<String, dynamic>>().map(fromJson).toList();
+      return PaginatedResult(count: list.length, results: list);
+    }
+    final j = raw as Map<String, dynamic>;
+    final list = (j['results'] as List? ?? []).whereType<Map<String, dynamic>>().map(fromJson).toList();
+    return PaginatedResult(count: j['count'] ?? list.length, next: j['next'], previous: j['previous'], results: list);
   }
+}
+
+// ── TenantUser ─────────────────────────────────────────────────────────────
+
+class TenantUser {
+  final String  id;
+  final String  email;
+  final String  firstName;
+  final String  lastName;
+  final String? schoolId;
+  final String? schoolName;
+  final bool    isStaff;
+
+  TenantUser({required this.id, required this.email, required this.firstName, required this.lastName, this.schoolId, this.schoolName, this.isStaff = false});
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory TenantUser.fromJson(Map<String, dynamic> j) => TenantUser(
+        id: j['id']?.toString() ?? '',
+        email: j['email'] ?? '',
+        firstName: j['first_name'] ?? '',
+        lastName: j['last_name'] ?? '',
+        schoolId: j['school']?.toString(),
+        schoolName: j['school_name']?.toString(),
+        isStaff: j['is_staff'] == true,
+      );
 }
 
 // ── StudentProfile ─────────────────────────────────────────────────────────
 
 class StudentProfile {
-  final int    id;
-  final String fullName;
-  final String? gradeClass;
-  final String? rollNumber;
-  final String? attendancePct;
+  final String  id;
+  final String  fullName;
+  final String? enrollmentNumber;
+  final String? bloodGroup;
+  final String? phone;
   final String? email;
+  final String? userId;
+  final bool    isArchived;
   final Map<String, dynamic> raw;
 
-  StudentProfile({
-    required this.id,
-    required this.fullName,
-    this.gradeClass,
-    this.rollNumber,
-    this.attendancePct,
-    this.email,
-    required this.raw,
-  });
+  StudentProfile({required this.id, required this.fullName, this.enrollmentNumber, this.bloodGroup, this.phone, this.email, this.userId, this.isArchived = false, required this.raw});
+
+  // Legacy getters used by existing UI without changes
+  String? get gradeClass    => null;
+  String? get rollNumber    => enrollmentNumber;
+  String? get attendancePct => null;
 
   factory StudentProfile.fromJson(Map<String, dynamic> j) {
-    final u     = j['user'] as Map<String, dynamic>? ?? j;
-    final first = (u['first_name'] ?? '').toString();
-    final last  = (u['last_name']  ?? '').toString();
+    final uRaw  = j['user'];
+    final u     = uRaw is Map<String, dynamic> ? uRaw : <String, dynamic>{};
+    final first = (u['first_name'] ?? j['first_name'] ?? '').toString();
+    final last  = (u['last_name']  ?? j['last_name']  ?? '').toString();
     final name  = '$first $last'.trim();
     return StudentProfile(
-      id:            j['id'] ?? 0,
-      fullName:      name.isNotEmpty ? name : (u['username'] ?? 'Student').toString(),
-      gradeClass:    (j['grade'] ?? j['class_name'] ?? j['current_class'])?.toString(),
-      rollNumber:    (j['roll_number'] ?? j['student_id'])?.toString(),
-      attendancePct: j['attendance_percentage']?.toString(),
-      email:         (u['email'] ?? j['email'])?.toString(),
-      raw:           j,
+      id:               j['id']?.toString() ?? '',
+      fullName:         name.isNotEmpty ? name : 'Student',
+      enrollmentNumber: j['enrollment_number']?.toString(),
+      bloodGroup:       j['blood_group']?.toString(),
+      phone:            j['phone_number']?.toString(),
+      email:            (u['email'] ?? j['email'])?.toString(),
+      userId:           uRaw is String ? uRaw : (u['id'] ?? j['user'])?.toString(),
+      isArchived:       j['is_archived'] == true,
+      raw:              j,
     );
   }
 }
@@ -605,34 +862,35 @@ class StudentProfile {
 // ── TeacherProfile ─────────────────────────────────────────────────────────
 
 class TeacherProfile {
-  final int    id;
-  final String fullName;
-  final String? subject;
+  final String  id;
+  final String  fullName;
   final String? employeeId;
+  final String? qualification;
+  final String? joiningDate;
   final String? email;
+  final String? userId;
   final Map<String, dynamic> raw;
 
-  TeacherProfile({
-    required this.id,
-    required this.fullName,
-    this.subject,
-    this.employeeId,
-    this.email,
-    required this.raw,
-  });
+  TeacherProfile({required this.id, required this.fullName, this.employeeId, this.qualification, this.joiningDate, this.email, this.userId, required this.raw});
+
+  // Legacy getter
+  String? get subject => qualification;
 
   factory TeacherProfile.fromJson(Map<String, dynamic> j) {
-    final u     = j['user'] as Map<String, dynamic>? ?? j;
-    final first = (u['first_name'] ?? '').toString();
-    final last  = (u['last_name']  ?? '').toString();
+    final uRaw  = j['user'];
+    final u     = uRaw is Map<String, dynamic> ? uRaw : <String, dynamic>{};
+    final first = (u['first_name'] ?? j['first_name'] ?? '').toString();
+    final last  = (u['last_name']  ?? j['last_name']  ?? '').toString();
     final name  = '$first $last'.trim();
     return TeacherProfile(
-      id:         j['id'] ?? 0,
-      fullName:   name.isNotEmpty ? name : (u['username'] ?? 'Teacher').toString(),
-      subject:    (j['subject'] ?? j['subjects'])?.toString(),
-      employeeId: j['employee_id']?.toString(),
-      email:      (u['email'] ?? j['email'])?.toString(),
-      raw:        j,
+      id:            j['id']?.toString() ?? '',
+      fullName:      name.isNotEmpty ? name : 'Teacher',
+      employeeId:    j['employee_id']?.toString(),
+      qualification: j['qualification']?.toString(),
+      joiningDate:   j['joining_date']?.toString(),
+      email:         (u['email'] ?? j['email'])?.toString(),
+      userId:        uRaw is String ? uRaw : (u['id'] ?? j['user'])?.toString(),
+      raw:           j,
     );
   }
 }
@@ -640,31 +898,33 @@ class TeacherProfile {
 // ── ParentProfile ──────────────────────────────────────────────────────────
 
 class ParentProfile {
-  final int    id;
-  final String fullName;
-  final String? linkedStudent;
+  final String  id;
+  final String  fullName;
+  final String? occupation;
+  final String? emergencyContact;
   final String? email;
+  final String? userId;
   final Map<String, dynamic> raw;
 
-  ParentProfile({
-    required this.id,
-    required this.fullName,
-    this.linkedStudent,
-    this.email,
-    required this.raw,
-  });
+  ParentProfile({required this.id, required this.fullName, this.occupation, this.emergencyContact, this.email, this.userId, required this.raw});
+
+  // Legacy getter
+  String? get linkedStudent => null;
 
   factory ParentProfile.fromJson(Map<String, dynamic> j) {
-    final u     = j['user'] as Map<String, dynamic>? ?? j;
-    final first = (u['first_name'] ?? '').toString();
-    final last  = (u['last_name']  ?? '').toString();
+    final uRaw  = j['user'];
+    final u     = uRaw is Map<String, dynamic> ? uRaw : <String, dynamic>{};
+    final first = (u['first_name'] ?? j['first_name'] ?? '').toString();
+    final last  = (u['last_name']  ?? j['last_name']  ?? '').toString();
     final name  = '$first $last'.trim();
     return ParentProfile(
-      id:            j['id'] ?? 0,
-      fullName:      name.isNotEmpty ? name : (u['username'] ?? 'Parent').toString(),
-      linkedStudent: (j['student_name'] ?? j['child_name'])?.toString(),
-      email:         (u['email'] ?? j['email'])?.toString(),
-      raw:           j,
+      id:               j['id']?.toString() ?? '',
+      fullName:         name.isNotEmpty ? name : 'Parent',
+      occupation:       j['occupation']?.toString(),
+      emergencyContact: j['emergency_contact_number']?.toString(),
+      email:            (u['email'] ?? j['email'])?.toString(),
+      userId:           uRaw is String ? uRaw : (u['id'] ?? j['user'])?.toString(),
+      raw:              j,
     );
   }
 }
@@ -672,202 +932,340 @@ class ParentProfile {
 // ── ParentStudentMapping ───────────────────────────────────────────────────
 
 class ParentStudentMapping {
-  final int    id;
-  final int    parentId;
-  final int    studentId;
-  final String? parentName;
+  final String  id;
+  final String  parentId;
+  final String  studentId;
+  final String? parentEmail;
   final String? studentName;
+  final String  relationship;
+  final bool    isPrimaryContact;
+  final bool    canViewAcademics;
+  final bool    canPayFees;
 
-  ParentStudentMapping({
-    required this.id,
-    required this.parentId,
-    required this.studentId,
-    this.parentName,
-    this.studentName,
-  });
+  ParentStudentMapping({required this.id, required this.parentId, required this.studentId, this.parentEmail, this.studentName, this.relationship = 'Guardian', this.isPrimaryContact = true, this.canViewAcademics = true, this.canPayFees = true});
 
-  factory ParentStudentMapping.fromJson(Map<String, dynamic> j) =>
-      ParentStudentMapping(
-        id:          j['id'] ?? 0,
-        parentId:    j['parent'] is int ? j['parent'] : (j['parent']?['id'] ?? 0),
-        studentId:   j['student'] is int ? j['student'] : (j['student']?['id'] ?? 0),
-        parentName:  j['parent_name']  ?? j['parent']?['name'],
-        studentName: j['student_name'] ?? j['student']?['name'],
+  factory ParentStudentMapping.fromJson(Map<String, dynamic> j) => ParentStudentMapping(
+        id:               j['id']?.toString() ?? '',
+        parentId:         j['parent']?.toString() ?? '',
+        studentId:        j['student']?.toString() ?? '',
+        parentEmail:      j['user_email']?.toString(),
+        studentName:      j['student_name']?.toString(),
+        relationship:     j['relationship']?.toString() ?? 'Guardian',
+        isPrimaryContact: j['is_primary_contact'] != false,
+        canViewAcademics: j['can_view_academics'] != false,
+        canPayFees:       j['can_pay_fees'] != false,
+      );
+}
+
+// ── AcademicYear ───────────────────────────────────────────────────────────
+
+class AcademicYear {
+  final String id;
+  final String name;
+  final String startDate;
+  final String endDate;
+  final bool   isActive;
+
+  AcademicYear({required this.id, required this.name, required this.startDate, required this.endDate, this.isActive = false});
+
+  factory AcademicYear.fromJson(Map<String, dynamic> j) => AcademicYear(
+        id:        j['id']?.toString() ?? '',
+        name:      j['name'] ?? '',
+        startDate: j['start_date'] ?? '',
+        endDate:   j['end_date'] ?? '',
+        isActive:  j['is_active'] == true,
+      );
+}
+
+// ── ClassLevel ─────────────────────────────────────────────────────────────
+
+class ClassLevel {
+  final String id;
+  final String name;
+  final int    numericOrder;
+
+  ClassLevel({required this.id, required this.name, required this.numericOrder});
+
+  factory ClassLevel.fromJson(Map<String, dynamic> j) => ClassLevel(
+        id:           j['id']?.toString() ?? '',
+        name:         j['name'] ?? '',
+        numericOrder: j['numeric_order'] ?? 0,
+      );
+}
+
+// ── Section ────────────────────────────────────────────────────────────────
+
+class Section {
+  final String  id;
+  final String  name;
+  final String  classLevelId;
+  final String? classLevelName;
+
+  Section({required this.id, required this.name, required this.classLevelId, this.classLevelName});
+
+  factory Section.fromJson(Map<String, dynamic> j) => Section(
+        id:             j['id']?.toString() ?? '',
+        name:           j['name'] ?? '',
+        classLevelId:   j['class_level']?.toString() ?? '',
+        classLevelName: j['class_level_name']?.toString(),
+      );
+}
+
+// ── Subject ────────────────────────────────────────────────────────────────
+
+class Subject {
+  final String  id;
+  final String  name;
+  final String? code;
+
+  Subject({required this.id, required this.name, this.code});
+
+  factory Subject.fromJson(Map<String, dynamic> j) => Subject(
+        id:   j['id']?.toString() ?? '',
+        name: j['name'] ?? '',
+        code: j['code']?.toString(),
       );
 }
 
 // ── Enrollment ─────────────────────────────────────────────────────────────
 
 class Enrollment {
-  final int    id;
-  final String studentName;
-  final String? className;
-  final String? status;
+  final String  id;
+  final String  studentId;
+  final String  studentName;
+  final String? enrollmentNo;
+  final String  academicYearId;
+  final String? academicYearName;
+  final String  classLevelId;
+  final String? classLevelName;
+  final String  sectionId;
+  final String? sectionName;
+  final String? rollNumber;
+  final String? enrollmentDate;
   final Map<String, dynamic> raw;
 
-  Enrollment({
-    required this.id,
-    required this.studentName,
-    this.className,
-    this.status,
-    required this.raw,
-  });
+  Enrollment({required this.id, required this.studentId, required this.studentName, this.enrollmentNo, required this.academicYearId, this.academicYearName, required this.classLevelId, this.classLevelName, required this.sectionId, this.sectionName, this.rollNumber, this.enrollmentDate, required this.raw});
+
+  // Legacy getters
+  String? get className => classLevelName != null && sectionName != null ? '${classLevelName!} ${sectionName!}' : classLevelName ?? sectionName;
+  String? get status    => null;
 
   factory Enrollment.fromJson(Map<String, dynamic> j) => Enrollment(
-        id:          j['id'] ?? 0,
-        studentName: (j['student_name'] ?? j['student']?['name'] ?? 'Student').toString(),
-        className:   (j['class_name'] ?? j['class'])?.toString(),
-        status:      j['status']?.toString(),
-        raw:         j,
+        id:               j['id']?.toString() ?? '',
+        studentId:        j['student']?.toString() ?? '',
+        studentName:      j['student_name'] ?? 'Student',
+        enrollmentNo:     j['student_enrollment_no']?.toString(),
+        academicYearId:   j['academic_year']?.toString() ?? '',
+        academicYearName: j['academic_year_name']?.toString(),
+        classLevelId:     j['class_level']?.toString() ?? '',
+        classLevelName:   j['class_level_name']?.toString(),
+        sectionId:        j['section']?.toString() ?? '',
+        sectionName:      j['section_name']?.toString(),
+        rollNumber:       j['roll_number']?.toString(),
+        enrollmentDate:   j['enrollment_date']?.toString(),
+        raw:              j,
       );
 }
 
 // ── TeacherAssignment ──────────────────────────────────────────────────────
 
 class TeacherAssignment {
-  final int    id;
-  final String teacherName;
-  final String? subject;
-  final String? className;
+  final String  id;
+  final String  teacherId;
+  final String  teacherName;
+  final String? employeeId;
+  final String  academicYearId;
+  final String? academicYearName;
+  final String  classLevelId;
+  final String? classLevelName;
+  final String  sectionId;
+  final String? sectionName;
+  final String  subjectId;
+  final String? subjectName;
+  final bool    isClassTeacher;
   final Map<String, dynamic> raw;
 
-  TeacherAssignment({
-    required this.id,
-    required this.teacherName,
-    this.subject,
-    this.className,
-    required this.raw,
-  });
+  TeacherAssignment({required this.id, required this.teacherId, required this.teacherName, this.employeeId, required this.academicYearId, this.academicYearName, required this.classLevelId, this.classLevelName, required this.sectionId, this.sectionName, required this.subjectId, this.subjectName, this.isClassTeacher = false, required this.raw});
+
+  // Legacy
+  String? get subject   => subjectName;
+  String? get className => classLevelName != null && sectionName != null ? '${classLevelName!} ${sectionName!}' : classLevelName;
 
   factory TeacherAssignment.fromJson(Map<String, dynamic> j) => TeacherAssignment(
-        id:          j['id'] ?? 0,
-        teacherName: (j['teacher_name'] ?? j['teacher']?['name'] ?? 'Teacher').toString(),
-        subject:     j['subject']?.toString(),
-        className:   (j['class_name'] ?? j['class'])?.toString(),
-        raw:         j,
+        id:               j['id']?.toString() ?? '',
+        teacherId:        j['teacher']?.toString() ?? '',
+        teacherName:      j['teacher_name'] ?? 'Teacher',
+        employeeId:       j['teacher_employee_id']?.toString(),
+        academicYearId:   j['academic_year']?.toString() ?? '',
+        academicYearName: j['academic_year_name']?.toString(),
+        classLevelId:     j['class_level']?.toString() ?? '',
+        classLevelName:   j['class_level_name']?.toString(),
+        sectionId:        j['section']?.toString() ?? '',
+        sectionName:      j['section_name']?.toString(),
+        subjectId:        j['subject']?.toString() ?? '',
+        subjectName:      j['subject_name']?.toString(),
+        isClassTeacher:   j['is_class_teacher'] == true,
+        raw:              j,
       );
 }
 
 // ── AttendanceRecord ───────────────────────────────────────────────────────
 
 class AttendanceRecord {
-  final int    id;
-  final String studentName;
-  final String status;   // present / absent / late
+  final String  id;
+  final String  studentId;
+  final String  studentName;
+  final String? enrollmentNo;
+  final String  status;
   final String? date;
+  final String? remarks;
 
-  AttendanceRecord({
-    required this.id,
-    required this.studentName,
-    required this.status,
-    this.date,
-  });
+  AttendanceRecord({required this.id, required this.studentId, required this.studentName, this.enrollmentNo, required this.status, this.date, this.remarks});
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> j) => AttendanceRecord(
-        id:          j['id'] ?? 0,
-        studentName: (j['student_name'] ?? j['student']?['name'] ?? 'Student').toString(),
-        status:      (j['status'] ?? 'present').toString().toLowerCase(),
-        date:        j['date']?.toString(),
+        id:           j['id']?.toString() ?? '',
+        studentId:    j['student']?.toString() ?? '',
+        studentName:  j['student_name'] ?? 'Student',
+        enrollmentNo: j['student_enrollment_no']?.toString(),
+        status:       j['status'] ?? 'Present',
+        date:         j['date']?.toString(),
+        remarks:      j['remarks']?.toString(),
       );
 }
 
 // ── Exam ───────────────────────────────────────────────────────────────────
 
 class Exam {
-  final int    id;
-  final String name;
-  final String? date;
-  final String? subject;
+  final String  id;
+  final String  name;
+  final String  academicYearId;
+  final String? academicYearName;
+  final String  startDate;
+  final String  endDate;
+  final bool    isPublished;
   final Map<String, dynamic> raw;
 
-  Exam({required this.id, required this.name, this.date, this.subject, required this.raw});
+  Exam({required this.id, required this.name, required this.academicYearId, this.academicYearName, required this.startDate, required this.endDate, this.isPublished = false, required this.raw});
+
+  // Legacy
+  String? get date    => startDate;
+  String? get subject => null;
 
   factory Exam.fromJson(Map<String, dynamic> j) => Exam(
-        id:      j['id'] ?? 0,
-        name:    (j['name'] ?? j['title'] ?? 'Exam').toString(),
-        date:    (j['date'] ?? j['exam_date'])?.toString(),
-        subject: j['subject']?.toString(),
-        raw:     j,
+        id:               j['id']?.toString() ?? '',
+        name:             j['name'] ?? 'Exam',
+        academicYearId:   j['academic_year']?.toString() ?? '',
+        academicYearName: j['academic_year_name']?.toString(),
+        startDate:        j['start_date'] ?? '',
+        endDate:          j['end_date'] ?? '',
+        isPublished:      j['is_published'] == true,
+        raw:              j,
       );
 }
 
 // ── StudentGrade ───────────────────────────────────────────────────────────
 
 class StudentGrade {
-  final int    id;
-  final String studentName;
+  final String  id;
+  final String  examId;
   final String? examName;
-  final String? score;
-  final String? grade;
+  final String  studentId;
+  final String  studentName;
+  final String  subjectId;
+  final String? subjectName;
+  final double  marksObtained;
+  final double  maxMarks;
+  final String? remarks;
 
-  StudentGrade({
-    required this.id,
-    required this.studentName,
-    this.examName,
-    this.score,
-    this.grade,
-  });
+  StudentGrade({required this.id, required this.examId, this.examName, required this.studentId, required this.studentName, required this.subjectId, this.subjectName, required this.marksObtained, this.maxMarks = 100, this.remarks});
+
+  double get percentage => maxMarks > 0 ? (marksObtained / maxMarks * 100) : 0;
+  String get gradeLetter {
+    final p = percentage;
+    if (p >= 95) return 'A+';
+    if (p >= 85) return 'A';
+    if (p >= 75) return 'B+';
+    if (p >= 65) return 'B';
+    if (p >= 50) return 'C';
+    if (p >= 35) return 'D';
+    return 'F';
+  }
+  // Legacy
+  String? get score => '$marksObtained / $maxMarks';
+  String? get grade => gradeLetter;
 
   factory StudentGrade.fromJson(Map<String, dynamic> j) => StudentGrade(
-        id:          j['id'] ?? 0,
-        studentName: (j['student_name'] ?? j['student']?['name'] ?? 'Student').toString(),
-        examName:    (j['exam_name']    ?? j['exam']?['name'])?.toString(),
-        score:       j['score']?.toString(),
-        grade:       j['grade']?.toString(),
+        id:            j['id']?.toString() ?? '',
+        examId:        j['exam']?.toString() ?? '',
+        examName:      j['exam_name']?.toString(),
+        studentId:     j['student']?.toString() ?? '',
+        studentName:   j['student_name'] ?? 'Student',
+        subjectId:     j['subject']?.toString() ?? '',
+        subjectName:   j['subject_name']?.toString(),
+        marksObtained: double.tryParse(j['marks_obtained']?.toString() ?? '0') ?? 0,
+        maxMarks:      double.tryParse(j['max_marks']?.toString() ?? '100') ?? 100,
+        remarks:       j['remarks']?.toString(),
       );
 }
 
 // ── AppPermission ──────────────────────────────────────────────────────────
 
 class AppPermission {
-  final int    id;
+  final String id;
   final String name;
-  final String? codename;
+  final String codename;
+  final String module;
 
-  AppPermission({required this.id, required this.name, this.codename});
+  AppPermission({required this.id, required this.name, required this.codename, required this.module});
 
   factory AppPermission.fromJson(Map<String, dynamic> j) => AppPermission(
-        id:       j['id'] ?? 0,
-        name:     (j['name'] ?? '').toString(),
-        codename: j['codename']?.toString(),
+        id:       j['id']?.toString() ?? '',
+        name:     j['name'] ?? '',
+        codename: j['codename'] ?? '',
+        module:   j['module'] ?? '',
       );
 }
 
 // ── AppRole ────────────────────────────────────────────────────────────────
 
 class AppRole {
-  final int    id;
-  final String name;
-  final List<int> permissions;
+  final String            id;
+  final String            name;
+  final String            description;
+  final List<String>      permissionIds;
+  final List<AppPermission> permissionDetails;
 
-  AppRole({required this.id, required this.name, required this.permissions});
+  AppRole({required this.id, required this.name, required this.description, required this.permissionIds, this.permissionDetails = const []});
 
-  factory AppRole.fromJson(Map<String, dynamic> j) => AppRole(
-        id:          j['id'] ?? 0,
-        name:        (j['name'] ?? '').toString(),
-        permissions: (j['permissions'] as List? ?? []).map((e) => e is int ? e : (e['id'] ?? 0) as int).toList(),
-      );
+  factory AppRole.fromJson(Map<String, dynamic> j) {
+    final permIds = (j['permissions'] as List? ?? []).map((e) => e.toString()).toList();
+    final details = (j['permission_details'] as List? ?? []).whereType<Map<String, dynamic>>().map(AppPermission.fromJson).toList();
+    return AppRole(
+      id:                j['id']?.toString() ?? '',
+      name:              j['name'] ?? '',
+      description:       j['description'] ?? '',
+      permissionIds:     permIds,
+      permissionDetails: details,
+    );
+  }
 }
 
 // ── UserRoleAssignment ─────────────────────────────────────────────────────
 
 class UserRoleAssignment {
-  final int id;
-  final int userId;
-  final int roleId;
+  final String  id;
+  final String  userId;
+  final String  roleId;
+  final String? userEmail;
   final String? roleName;
 
-  UserRoleAssignment({
-    required this.id,
-    required this.userId,
-    required this.roleId,
-    this.roleName,
-  });
+  UserRoleAssignment({required this.id, required this.userId, required this.roleId, this.userEmail, this.roleName});
 
   factory UserRoleAssignment.fromJson(Map<String, dynamic> j) => UserRoleAssignment(
-        id:       j['id'] ?? 0,
-        userId:   j['user'] is int ? j['user'] : (j['user']?['id'] ?? 0),
-        roleId:   j['role'] is int ? j['role'] : (j['role']?['id'] ?? 0),
-        roleName: j['role_name'] ?? j['role']?['name'],
+        id:        j['id']?.toString() ?? '',
+        userId:    j['user']?.toString() ?? '',
+        roleId:    j['role']?.toString() ?? '',
+        userEmail: j['user_email']?.toString(),
+        roleName:  j['role_name']?.toString(),
       );
 }

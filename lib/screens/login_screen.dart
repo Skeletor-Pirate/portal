@@ -5,6 +5,7 @@ import '../theme.dart';
 import '../models/role_config.dart';
 import '../services/api_service.dart';
 import '../services/dev_auth.dart';
+import '../services/app_store.dart';
 import 'app_screen.dart';
 import 'api_explorer.dart';
 
@@ -218,6 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _enterDevRole(UserRole role) {
     DevAuth.activate();
+    AppStore.instance.activateDevMode();
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => AppScreen(role: role),
     ));
@@ -465,14 +467,40 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
     final username = _usernameCtrl.text.trim();
     final password = _passwordCtrl.text;
     if (username.isEmpty || password.isEmpty) {
-      setState(() => _error = "Please enter your username and password.");
+      setState(() => _error = "Please enter your email address and password.");
       return;
     }
     setState(() { _loading = true; _error = null; });
     try {
       await ApiService().login(username, password);
+      // Fetch session data (profile context + auth me) from backend
+      await AppStore.instance.initSession();
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AppScreen(role: widget.role)));
+
+      // Auto-detect user role from backend
+      UserRole detectedRole = widget.role;
+      final ctx = AppStore.instance.profileContext;
+      if (ctx != null) {
+        final backendRoles = ctx.roles.map((r) => r.toLowerCase()).toList();
+        final isSuperuser  = ctx.isSuperuser;
+
+        if (isSuperuser) {
+          detectedRole = UserRole.global;
+        } else if (backendRoles.any((r) => r.contains('admin'))) {
+          detectedRole = UserRole.admin;
+        } else if (backendRoles.any((r) => r.contains('teacher')) || ctx.profiles.teacher.exists) {
+          detectedRole = UserRole.teacher;
+        } else if (backendRoles.any((r) => r.contains('student')) || ctx.profiles.student.exists) {
+          detectedRole = UserRole.student;
+        } else if (backendRoles.any((r) => r.contains('parent')) || ctx.profiles.parent.exists) {
+          detectedRole = UserRole.parent;
+        } else if (backendRoles.any((r) => r.contains('accountant') || r.contains('finance'))) {
+          detectedRole = UserRole.accountant;
+        }
+        // If none matched, keep the pre-selected role
+      }
+
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AppScreen(role: detectedRole)));
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
@@ -485,6 +513,7 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
   /// Dev bypass directly from the login form — no credentials needed
   void _devBypass() {
     DevAuth.activate();
+    AppStore.instance.activateDevMode();
     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AppScreen(role: widget.role)));
   }
 
@@ -545,10 +574,10 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
 
             const SizedBox(height: 28),
 
-            // ── Username ───────────────────────────────────────────────────
-            Text("Username", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text3)),
+            // ── Email ──────────────────────────────────────────────────────
+            Text("Email or Username", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text3)),
             const SizedBox(height: 6),
-            TextField(controller: _usernameCtrl, keyboardType: TextInputType.emailAddress, textInputAction: TextInputAction.next, style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.text1), decoration: _inputDec("Enter your username", Icons.person_outline_rounded)),
+            TextField(controller: _usernameCtrl, keyboardType: TextInputType.emailAddress, textInputAction: TextInputAction.next, style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.text1), decoration: _inputDec("Enter your email or username", Icons.person_outline_rounded)),
 
             const SizedBox(height: 16),
 
@@ -614,7 +643,7 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
             ),
 
             const SizedBox(height: 16),
-            Center(child: Text("Use credentials provided by your school administrator.", textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text4, height: 1.5))),
+            Center(child: Text("Enter the email or username provided by your school administrator, along with your password.", textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text4, height: 1.5))),
           ]),
         )),
       ]),

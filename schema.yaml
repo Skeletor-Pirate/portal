@@ -1,0 +1,3768 @@
+openapi: 3.0.3
+info:
+  title: Multi-Tenant School ERP API
+  version: 1.0.0
+  description: Robust Multi-Tenant backend for School Management operations.
+paths:
+  /api/v1/academics/enrollments/:
+    get:
+      operationId: v1_academics_enrollments_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStudentEnrollmentList'
+          description: ''
+    post:
+      operationId: v1_academics_enrollments_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentEnrollmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentEnrollmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentEnrollmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentEnrollment'
+          description: ''
+  /api/v1/academics/enrollments/{id}/:
+    get:
+      operationId: v1_academics_enrollments_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student enrollment.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentEnrollment'
+          description: ''
+    put:
+      operationId: v1_academics_enrollments_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student enrollment.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentEnrollmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentEnrollmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentEnrollmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentEnrollment'
+          description: ''
+    patch:
+      operationId: v1_academics_enrollments_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student enrollment.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentEnrollmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentEnrollmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentEnrollmentRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentEnrollment'
+          description: ''
+    delete:
+      operationId: v1_academics_enrollments_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student enrollment.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/academics/enrollments/bulk-promote/:
+    post:
+      operationId: v1_academics_enrollments_bulk_promote_create
+      description: |-
+        POST /api/v1/academics/enrollments/bulk-promote/
+        Promotes a batch of students to a new class/section for a new academic year.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkPromotionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BulkPromotionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BulkPromotionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/academics/teacher-assignments/:
+    get:
+      operationId: v1_academics_teacher_assignments_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTeacherAssignmentList'
+          description: ''
+    post:
+      operationId: v1_academics_teacher_assignments_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherAssignmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TeacherAssignmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TeacherAssignmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherAssignment'
+          description: ''
+  /api/v1/academics/teacher-assignments/{id}/:
+    get:
+      operationId: v1_academics_teacher_assignments_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this teacher assignment.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherAssignment'
+          description: ''
+    put:
+      operationId: v1_academics_teacher_assignments_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this teacher assignment.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherAssignmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TeacherAssignmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TeacherAssignmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherAssignment'
+          description: ''
+    patch:
+      operationId: v1_academics_teacher_assignments_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this teacher assignment.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTeacherAssignmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTeacherAssignmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTeacherAssignmentRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherAssignment'
+          description: ''
+    delete:
+      operationId: v1_academics_teacher_assignments_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this teacher assignment.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/accounts/permissions/:
+    get:
+      operationId: v1_accounts_permissions_list
+      description: |-
+        Global Read-Only list of available permissions.
+        These are system-wide, so they don't use TenantAwareModelViewSet.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Permission'
+          description: ''
+  /api/v1/accounts/permissions/{id}/:
+    get:
+      operationId: v1_accounts_permissions_retrieve
+      description: |-
+        Global Read-Only list of available permissions.
+        These are system-wide, so they don't use TenantAwareModelViewSet.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this permission.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+          description: ''
+  /api/v1/accounts/roles/:
+    get:
+      operationId: v1_accounts_roles_list
+      description: |-
+        CRUD endpoints for Roles.
+        Strictly isolated so admins only see/edit their own school's roles.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRoleList'
+          description: ''
+    post:
+      operationId: v1_accounts_roles_create
+      description: |-
+        CRUD endpoints for Roles.
+        Strictly isolated so admins only see/edit their own school's roles.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+          description: ''
+  /api/v1/accounts/roles/{id}/:
+    get:
+      operationId: v1_accounts_roles_retrieve
+      description: |-
+        CRUD endpoints for Roles.
+        Strictly isolated so admins only see/edit their own school's roles.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this role.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+          description: ''
+    put:
+      operationId: v1_accounts_roles_update
+      description: |-
+        CRUD endpoints for Roles.
+        Strictly isolated so admins only see/edit their own school's roles.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this role.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+          description: ''
+    patch:
+      operationId: v1_accounts_roles_partial_update
+      description: |-
+        CRUD endpoints for Roles.
+        Strictly isolated so admins only see/edit their own school's roles.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this role.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+          description: ''
+    delete:
+      operationId: v1_accounts_roles_destroy
+      description: |-
+        CRUD endpoints for Roles.
+        Strictly isolated so admins only see/edit their own school's roles.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this role.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/accounts/user-roles/:
+    get:
+      operationId: v1_accounts_user_roles_list
+      description: |-
+        Endpoints for assigning Users to Roles.
+        Strictly isolated and validated by the UserRoleSerializer.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserRoleList'
+          description: ''
+    post:
+      operationId: v1_accounts_user_roles_create
+      description: |-
+        Endpoints for assigning Users to Roles.
+        Strictly isolated and validated by the UserRoleSerializer.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRole'
+          description: ''
+  /api/v1/accounts/user-roles/{id}/:
+    get:
+      operationId: v1_accounts_user_roles_retrieve
+      description: |-
+        Endpoints for assigning Users to Roles.
+        Strictly isolated and validated by the UserRoleSerializer.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this user role.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRole'
+          description: ''
+    put:
+      operationId: v1_accounts_user_roles_update
+      description: |-
+        Endpoints for assigning Users to Roles.
+        Strictly isolated and validated by the UserRoleSerializer.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this user role.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRole'
+          description: ''
+    patch:
+      operationId: v1_accounts_user_roles_partial_update
+      description: |-
+        Endpoints for assigning Users to Roles.
+        Strictly isolated and validated by the UserRoleSerializer.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this user role.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRoleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRoleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRoleRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRole'
+          description: ''
+    delete:
+      operationId: v1_accounts_user_roles_destroy
+      description: |-
+        Endpoints for assigning Users to Roles.
+        Strictly isolated and validated by the UserRoleSerializer.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this user role.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/login/:
+    post:
+      operationId: v1_auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/v1/auth/me/:
+    get:
+      operationId: v1_auth_me_retrieve
+      description: |-
+        GET /auth/me/
+        Returns the currently authenticated user's details based on their JWT.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/refresh/:
+    post:
+      operationId: v1_auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/operations/attendance/:
+    get:
+      operationId: v1_operations_attendance_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAttendanceList'
+          description: ''
+    post:
+      operationId: v1_operations_attendance_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+  /api/v1/operations/attendance/{id}/:
+    get:
+      operationId: v1_operations_attendance_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this attendance.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+    put:
+      operationId: v1_operations_attendance_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this attendance.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+    patch:
+      operationId: v1_operations_attendance_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this attendance.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAttendanceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAttendanceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAttendanceRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+    delete:
+      operationId: v1_operations_attendance_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this attendance.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/operations/attendance/bulk-record/:
+    post:
+      operationId: v1_operations_attendance_bulk_record_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkAttendanceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BulkAttendanceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BulkAttendanceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/operations/exams/:
+    get:
+      operationId: v1_operations_exams_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedExamList'
+          description: ''
+    post:
+      operationId: v1_operations_exams_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExamRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExamRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExamRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exam'
+          description: ''
+  /api/v1/operations/exams/{id}/:
+    get:
+      operationId: v1_operations_exams_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this exam.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exam'
+          description: ''
+    put:
+      operationId: v1_operations_exams_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this exam.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExamRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExamRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExamRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exam'
+          description: ''
+    patch:
+      operationId: v1_operations_exams_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this exam.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedExamRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedExamRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedExamRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exam'
+          description: ''
+    delete:
+      operationId: v1_operations_exams_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this exam.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/operations/grades/:
+    get:
+      operationId: v1_operations_grades_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStudentGradeList'
+          description: ''
+    post:
+      operationId: v1_operations_grades_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentGradeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentGradeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentGradeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentGrade'
+          description: ''
+  /api/v1/operations/grades/{id}/:
+    get:
+      operationId: v1_operations_grades_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student grade.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentGrade'
+          description: ''
+    put:
+      operationId: v1_operations_grades_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student grade.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentGradeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentGradeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentGradeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentGrade'
+          description: ''
+    patch:
+      operationId: v1_operations_grades_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student grade.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentGradeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentGradeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentGradeRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentGrade'
+          description: ''
+    delete:
+      operationId: v1_operations_grades_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student grade.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/operations/grades/bulk-submit/:
+    post:
+      operationId: v1_operations_grades_bulk_submit_create
+      description: |-
+        POST /api/v1/operations/grades/bulk-submit/
+        Highly optimized "Upsert" endpoint for submitting an entire column of grades.
+        Safeguarded by TeacherAssignment validation.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkGradeSubmitRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BulkGradeSubmitRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BulkGradeSubmitRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/profiles/me/:
+    get:
+      operationId: v1_profiles_me_retrieve
+      description: |-
+        GET /api/v1/profiles/me/
+        Returns the user's base identity, their RBAC roles, and any
+        linked profiles (Teacher, Parent, Student) for frontend context switching.
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/profiles/parent-student-mappings/:
+    get:
+      operationId: v1_profiles_parent_student_mappings_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedParentStudentMappingList'
+          description: ''
+    post:
+      operationId: v1_profiles_parent_student_mappings_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParentStudentMappingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParentStudentMappingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParentStudentMappingRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentStudentMapping'
+          description: ''
+  /api/v1/profiles/parent-student-mappings/{id}/:
+    get:
+      operationId: v1_profiles_parent_student_mappings_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this parent student mapping.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentStudentMapping'
+          description: ''
+    put:
+      operationId: v1_profiles_parent_student_mappings_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this parent student mapping.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParentStudentMappingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParentStudentMappingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParentStudentMappingRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentStudentMapping'
+          description: ''
+    patch:
+      operationId: v1_profiles_parent_student_mappings_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this parent student mapping.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedParentStudentMappingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedParentStudentMappingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedParentStudentMappingRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentStudentMapping'
+          description: ''
+    delete:
+      operationId: v1_profiles_parent_student_mappings_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this parent student mapping.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/profiles/parents/:
+    get:
+      operationId: v1_profiles_parents_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedParentProfileList'
+          description: ''
+    post:
+      operationId: v1_profiles_parents_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParentProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParentProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParentProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentProfile'
+          description: ''
+  /api/v1/profiles/parents/{id}/:
+    get:
+      operationId: v1_profiles_parents_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this parent profile.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentProfile'
+          description: ''
+    put:
+      operationId: v1_profiles_parents_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this parent profile.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParentProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ParentProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ParentProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentProfile'
+          description: ''
+    patch:
+      operationId: v1_profiles_parents_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this parent profile.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedParentProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedParentProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedParentProfileRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParentProfile'
+          description: ''
+    delete:
+      operationId: v1_profiles_parents_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this parent profile.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/profiles/students/:
+    get:
+      operationId: v1_profiles_students_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStudentProfileList'
+          description: ''
+    post:
+      operationId: v1_profiles_students_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfile'
+          description: ''
+  /api/v1/profiles/students/{id}/:
+    get:
+      operationId: v1_profiles_students_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student profile.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfile'
+          description: ''
+    put:
+      operationId: v1_profiles_students_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student profile.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfile'
+          description: ''
+    patch:
+      operationId: v1_profiles_students_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student profile.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentProfileRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfile'
+          description: ''
+    delete:
+      operationId: v1_profiles_students_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this student profile.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/profiles/teachers/:
+    get:
+      operationId: v1_profiles_teachers_list
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTeacherProfileList'
+          description: ''
+    post:
+      operationId: v1_profiles_teachers_create
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TeacherProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TeacherProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherProfile'
+          description: ''
+  /api/v1/profiles/teachers/{id}/:
+    get:
+      operationId: v1_profiles_teachers_retrieve
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this teacher profile.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherProfile'
+          description: ''
+    put:
+      operationId: v1_profiles_teachers_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this teacher profile.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeacherProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TeacherProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TeacherProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherProfile'
+          description: ''
+    patch:
+      operationId: v1_profiles_teachers_partial_update
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this teacher profile.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTeacherProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTeacherProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTeacherProfileRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherProfile'
+          description: ''
+    delete:
+      operationId: v1_profiles_teachers_destroy
+      description: |-
+        Base ViewSet that automatically filters all database queries by request.user.school.
+        All future Module ViewSets (StudentProfileViewSet, AttendanceViewSet, InvoiceViewSet)
+        MUST inherit from this to guarantee strict data isolation across the SaaS.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this teacher profile.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    Attendance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        student_name:
+          type: string
+          readOnly: true
+        student_enrollment_no:
+          type: string
+          readOnly: true
+        date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        remarks:
+          type: string
+          nullable: true
+          maxLength: 255
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        student:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+      required:
+      - academic_year
+      - class_level
+      - date
+      - id
+      - school
+      - section
+      - student
+      - student_enrollment_no
+      - student_name
+    AttendanceRecordItemRequest:
+      type: object
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        remarks:
+          type: string
+          maxLength: 255
+      required:
+      - status
+      - student_id
+    AttendanceRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        remarks:
+          type: string
+          nullable: true
+          maxLength: 255
+        student:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+      required:
+      - academic_year
+      - class_level
+      - date
+      - section
+      - student
+    BulkAttendanceRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        academic_year_id:
+          type: string
+          format: uuid
+        class_level_id:
+          type: string
+          format: uuid
+        section_id:
+          type: string
+          format: uuid
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceRecordItemRequest'
+      required:
+      - academic_year_id
+      - class_level_id
+      - date
+      - records
+      - section_id
+    BulkGradeSubmitRequest:
+      type: object
+      description: |-
+        Validates the payload for submitting an entire column of grades.
+        Enforces strict Teacher-Subject-Section RBAC logic.
+      properties:
+        exam_id:
+          type: string
+          format: uuid
+        subject_id:
+          type: string
+          format: uuid
+        section_id:
+          type: string
+          format: uuid
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/GradeRecordItemRequest'
+      required:
+      - exam_id
+      - records
+      - section_id
+      - subject_id
+    BulkPromotionRequest:
+      type: object
+      description: Validates the payload for bulk promoting students to a new academic
+        year.
+      properties:
+        student_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: List of StudentProfile UUIDs to promote.
+        target_academic_year_id:
+          type: string
+          format: uuid
+        target_class_level_id:
+          type: string
+          format: uuid
+        target_section_id:
+          type: string
+          format: uuid
+      required:
+      - student_ids
+      - target_academic_year_id
+      - target_class_level_id
+      - target_section_id
+    Exam:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        academic_year_name:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        is_published:
+          type: boolean
+          description: Can parents/students see these results?
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        academic_year:
+          type: string
+          format: uuid
+      required:
+      - academic_year
+      - academic_year_name
+      - end_date
+      - id
+      - name
+      - school
+      - start_date
+    ExamRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        is_published:
+          type: boolean
+          description: Can parents/students see these results?
+        academic_year:
+          type: string
+          format: uuid
+      required:
+      - academic_year
+      - end_date
+      - name
+      - start_date
+    GradeRecordItemRequest:
+      type: object
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        marks_obtained:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        max_marks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          default: '100.00'
+        remarks:
+          type: string
+          maxLength: 255
+      required:
+      - marks_obtained
+      - student_id
+    PaginatedAttendanceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attendance'
+    PaginatedExamList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Exam'
+    PaginatedParentProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParentProfile'
+    PaginatedParentStudentMappingList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParentStudentMapping'
+    PaginatedRoleList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+    PaginatedStudentEnrollmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudentEnrollment'
+    PaginatedStudentGradeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudentGrade'
+    PaginatedStudentProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudentProfile'
+    PaginatedTeacherAssignmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeacherAssignment'
+    PaginatedTeacherProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeacherProfile'
+    PaginatedUserRoleList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRole'
+    ParentProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+          maxLength: 100
+        emergency_contact_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+      required:
+      - email
+      - first_name
+      - id
+      - last_name
+      - school
+      - user
+    ParentProfileRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+          maxLength: 100
+        emergency_contact_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        user:
+          type: string
+          format: uuid
+      required:
+      - user
+    ParentStudentMapping:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        parent_name:
+          type: string
+          readOnly: true
+        student_name:
+          type: string
+          readOnly: true
+        relationship:
+          type: string
+          maxLength: 50
+        is_primary_contact:
+          type: boolean
+        can_view_academics:
+          type: boolean
+        can_pay_fees:
+          type: boolean
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        parent:
+          type: string
+          format: uuid
+        student:
+          type: string
+          format: uuid
+      required:
+      - id
+      - parent
+      - parent_name
+      - relationship
+      - school
+      - student
+      - student_name
+    ParentStudentMappingRequest:
+      type: object
+      properties:
+        relationship:
+          type: string
+          minLength: 1
+          maxLength: 50
+        is_primary_contact:
+          type: boolean
+        can_view_academics:
+          type: boolean
+        can_pay_fees:
+          type: boolean
+        parent:
+          type: string
+          format: uuid
+        student:
+          type: string
+          format: uuid
+      required:
+      - parent
+      - relationship
+      - student
+    PatchedAttendanceRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        remarks:
+          type: string
+          nullable: true
+          maxLength: 255
+        student:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+    PatchedExamRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        is_published:
+          type: boolean
+          description: Can parents/students see these results?
+        academic_year:
+          type: string
+          format: uuid
+    PatchedParentProfileRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+          maxLength: 100
+        emergency_contact_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        user:
+          type: string
+          format: uuid
+    PatchedParentStudentMappingRequest:
+      type: object
+      properties:
+        relationship:
+          type: string
+          minLength: 1
+          maxLength: 50
+        is_primary_contact:
+          type: boolean
+        can_view_academics:
+          type: boolean
+        can_pay_fees:
+          type: boolean
+        parent:
+          type: string
+          format: uuid
+        student:
+          type: string
+          format: uuid
+    PatchedRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+            format: uuid
+    PatchedStudentEnrollmentRequest:
+      type: object
+      properties:
+        roll_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        student:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+    PatchedStudentGradeRequest:
+      type: object
+      properties:
+        marks_obtained:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        max_marks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        remarks:
+          type: string
+          nullable: true
+          maxLength: 255
+        exam:
+          type: string
+          format: uuid
+        student:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          format: uuid
+    PatchedStudentProfileRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        enrollment_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+        blood_group:
+          type: string
+          nullable: true
+          maxLength: 10
+        is_archived:
+          type: boolean
+        user:
+          type: string
+          format: uuid
+    PatchedTeacherAssignmentRequest:
+      type: object
+      properties:
+        is_class_teacher:
+          type: boolean
+        teacher:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          format: uuid
+    PatchedTeacherProfileRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        employee_id:
+          type: string
+          minLength: 1
+          maxLength: 50
+        qualification:
+          type: string
+          nullable: true
+          maxLength: 255
+        joining_date:
+          type: string
+          format: date
+          nullable: true
+        user:
+          type: string
+          format: uuid
+    PatchedUserRoleRequest:
+      type: object
+      properties:
+        user:
+          type: string
+          format: uuid
+        role:
+          type: string
+          format: uuid
+    Permission:
+      type: object
+      description: Read-only serializer to list available permissions.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        codename:
+          type: string
+          maxLength: 100
+        module:
+          type: string
+          maxLength: 50
+      required:
+      - codename
+      - id
+      - module
+      - name
+    PermissionRequest:
+      type: object
+      description: Read-only serializer to list available permissions.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        codename:
+          type: string
+          minLength: 1
+          maxLength: 100
+        module:
+          type: string
+          minLength: 1
+          maxLength: 50
+      required:
+      - codename
+      - module
+      - name
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+            format: uuid
+        permission_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+          readOnly: true
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+      required:
+      - id
+      - name
+      - permission_details
+      - permissions
+      - school
+    RoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - name
+      - permissions
+    StatusEnum:
+      enum:
+      - Present
+      - Absent
+      - Late
+      - Half-Day
+      type: string
+      description: |-
+        * `Present` - Present
+        * `Absent` - Absent
+        * `Late` - Late
+        * `Half-Day` - Half-Day
+    StudentEnrollment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        student_name:
+          type: string
+          readOnly: true
+        student_enrollment_no:
+          type: string
+          readOnly: true
+        academic_year_name:
+          type: string
+          readOnly: true
+        class_level_name:
+          type: string
+          readOnly: true
+        section_name:
+          type: string
+          readOnly: true
+        roll_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        enrollment_date:
+          type: string
+          format: date
+          readOnly: true
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        student:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+      required:
+      - academic_year
+      - academic_year_name
+      - class_level
+      - class_level_name
+      - enrollment_date
+      - id
+      - school
+      - section
+      - section_name
+      - student
+      - student_enrollment_no
+      - student_name
+    StudentEnrollmentRequest:
+      type: object
+      properties:
+        roll_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        student:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+      required:
+      - academic_year
+      - class_level
+      - section
+      - student
+    StudentGrade:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        student_name:
+          type: string
+          readOnly: true
+        exam_name:
+          type: string
+          readOnly: true
+        subject_name:
+          type: string
+          readOnly: true
+        marks_obtained:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        max_marks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        remarks:
+          type: string
+          nullable: true
+          maxLength: 255
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        exam:
+          type: string
+          format: uuid
+        student:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          format: uuid
+      required:
+      - exam
+      - exam_name
+      - id
+      - marks_obtained
+      - school
+      - student
+      - student_name
+      - subject
+      - subject_name
+    StudentGradeRequest:
+      type: object
+      properties:
+        marks_obtained:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        max_marks:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        remarks:
+          type: string
+          nullable: true
+          maxLength: 255
+        exam:
+          type: string
+          format: uuid
+        student:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          format: uuid
+      required:
+      - exam
+      - marks_obtained
+      - student
+      - subject
+    StudentProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+        enrollment_number:
+          type: string
+          maxLength: 50
+        blood_group:
+          type: string
+          nullable: true
+          maxLength: 10
+        is_archived:
+          type: boolean
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+      required:
+      - email
+      - enrollment_number
+      - first_name
+      - id
+      - last_name
+      - school
+      - user
+    StudentProfileRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        enrollment_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+        blood_group:
+          type: string
+          nullable: true
+          maxLength: 10
+        is_archived:
+          type: boolean
+        user:
+          type: string
+          format: uuid
+      required:
+      - enrollment_number
+      - user
+    TeacherAssignment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        teacher_name:
+          type: string
+          readOnly: true
+        teacher_employee_id:
+          type: string
+          readOnly: true
+        academic_year_name:
+          type: string
+          readOnly: true
+        class_level_name:
+          type: string
+          readOnly: true
+        section_name:
+          type: string
+          readOnly: true
+        subject_name:
+          type: string
+          readOnly: true
+        is_class_teacher:
+          type: boolean
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        teacher:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          format: uuid
+      required:
+      - academic_year
+      - academic_year_name
+      - class_level
+      - class_level_name
+      - id
+      - school
+      - section
+      - section_name
+      - subject
+      - subject_name
+      - teacher
+      - teacher_employee_id
+      - teacher_name
+    TeacherAssignmentRequest:
+      type: object
+      properties:
+        is_class_teacher:
+          type: boolean
+        teacher:
+          type: string
+          format: uuid
+        academic_year:
+          type: string
+          format: uuid
+        class_level:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          format: uuid
+      required:
+      - academic_year
+      - class_level
+      - section
+      - subject
+      - teacher
+    TeacherProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+        employee_id:
+          type: string
+          maxLength: 50
+        qualification:
+          type: string
+          nullable: true
+          maxLength: 255
+        joining_date:
+          type: string
+          format: date
+          nullable: true
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+      required:
+      - email
+      - employee_id
+      - first_name
+      - id
+      - last_name
+      - school
+      - user
+    TeacherProfileRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        address:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        employee_id:
+          type: string
+          minLength: 1
+          maxLength: 50
+        qualification:
+          type: string
+          nullable: true
+          maxLength: 255
+        joining_date:
+          type: string
+          format: date
+          nullable: true
+        user:
+          type: string
+          format: uuid
+      required:
+      - employee_id
+      - user
+    TokenObtainPair:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - refresh
+    TokenObtainPairRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        school_name:
+          type: string
+          readOnly: true
+        school_subdomain:
+          type: string
+          readOnly: true
+        is_staff:
+          type: boolean
+          readOnly: true
+          title: Staff status
+          description: Designates whether the user can log into this admin site.
+      required:
+      - email
+      - id
+      - is_staff
+      - school
+      - school_name
+      - school_subdomain
+    UserRole:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+        role:
+          type: string
+          format: uuid
+        user_email:
+          type: string
+          format: email
+          readOnly: true
+        role_name:
+          type: string
+          readOnly: true
+        school:
+          type: string
+          format: uuid
+          readOnly: true
+      required:
+      - id
+      - role
+      - role_name
+      - school
+      - user
+      - user_email
+    UserRoleRequest:
+      type: object
+      properties:
+        user:
+          type: string
+          format: uuid
+        role:
+          type: string
+          format: uuid
+      required:
+      - role
+      - user
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

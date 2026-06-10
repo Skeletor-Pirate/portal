@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme.dart';
 import '../../models/role_config.dart';
+import '../../services/api_service.dart';
+import '../../services/app_store.dart';
 import '../../widgets/builders.dart';
 import '../../widgets/interactive.dart';
 import '../page_router.dart';
@@ -24,48 +26,74 @@ class ParentPages extends StatelessWidget {
   }
 }
 
-class _Dashboard extends StatelessWidget {
+class _Dashboard extends StatefulWidget {
   const _Dashboard();
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    heroPortrait(kRoles[UserRole.parent]!.avatarAsset, 'Westfield Academy'),
-    profileInfo('Alexander Pierce', 'Guardian', 'Guardian ID: #8821'),
-    pageTitle('Dashboard'),
-    childCard(),
-    secLabel('Quick Actions'),
-    actionGrid([
-      ActionItem(icon: Icons.bar_chart_rounded,     label: 'Child Grades',  bg: AppColors.blueLight,  iconColor: AppColors.blue,
-          onTap: () => showToast(context, 'Opening grades…')),
-      ActionItem(icon: Icons.fact_check_rounded,    label: 'Attendance',    bg: AppColors.greenLight, iconColor: AppColors.green,
-          onTap: () => showToast(context, 'Opening attendance…')),
-      ActionItem(icon: Icons.description_rounded,   label: 'Assignments',   bg: AppColors.tealLight,  iconColor: AppColors.teal,
-          onTap: () => showToast(context, 'Opening assignments…')),
-      ActionItem(icon: Icons.credit_card_rounded,   label: 'Pay Fees',      bg: AppColors.redLight,   iconColor: AppColors.red,
-          onTap: () => showPayFees(context)),
-      ActionItem(icon: Icons.auto_awesome_rounded,  label: 'AI Insights',   bg: AppColors.amberLight, iconColor: AppColors.amber,
-          onTap: () => showToast(context, 'Opening AI insights…')),
-      ActionItem(icon: Icons.chat_rounded,          label: 'Message',       bg: AppColors.blueLight,  iconColor: AppColors.blue,
-          onTap: () => showMessageTeacher(context)),
-    ]),
-    secLabel('Recent Updates'),
-    appCard(Padding(padding: const EdgeInsets.all(16), child: timeline([
-      TlItem(title: 'Grade Posted',       sub: 'Math Mid-Term: 82/100 · B+',    time: 'Today',      color: AppColors.blue),
-      TlItem(title: 'Attendance Alert',   sub: 'Late arrival on Apr 1',          time: '2 days ago', color: AppColors.amber),
-      TlItem(title: 'Assignment Graded',  sub: 'History Essay: A · Great work!', time: '3 days ago', color: AppColors.green),
-      TlItem(title: 'Fee Due Reminder',   sub: 'Term 2 fee due Apr 15',          time: 'Apr 1',      color: AppColors.red),
-    ]))),
-    const SizedBox(height: 16),
-  ]);
+  State<_Dashboard> createState() => _DashboardState();
+}
+
+class _DashboardState extends State<_Dashboard> {
+  ProfileMe? _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    if (TokenStore.hasTokens && !AppStore.instance.isDevMode) {
+      ApiService().getMyProfile().then((p) {
+        if (mounted) setState(() => _profile = p);
+      }).catchError((_) {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cfg   = kRoles[UserRole.parent]!;
+    final store = AppStore.instance;
+    final name   = store.currentUserName.isNotEmpty ? store.currentUserName : 'Alexander Pierce';
+    final school = store.currentSchool.isNotEmpty ? store.currentSchool : 'Westfield Academy';
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      heroPortrait(cfg.avatarAsset, school),
+      profileInfo(name, 'Guardian', cfg.idLabel),
+      pageTitle('Dashboard'),
+      childCard(),
+      secLabel('Quick Actions'),
+      actionGrid([
+        ActionItem(icon: Icons.bar_chart_rounded,     label: 'Child Grades',  bg: AppColors.blueLight,  iconColor: AppColors.blue,
+            onTap: () => showToast(context, 'Opening grades…')),
+        ActionItem(icon: Icons.fact_check_rounded,    label: 'Attendance',    bg: AppColors.greenLight, iconColor: AppColors.green,
+            onTap: () => showToast(context, 'Opening attendance…')),
+        ActionItem(icon: Icons.description_rounded,   label: 'Assignments',   bg: AppColors.tealLight,  iconColor: AppColors.teal,
+            onTap: () => showToast(context, 'Opening assignments…')),
+        ActionItem(icon: Icons.credit_card_rounded,   label: 'Pay Fees',      bg: AppColors.redLight,   iconColor: AppColors.red,
+            onTap: () => showPayFees(context)),
+        ActionItem(icon: Icons.auto_awesome_rounded,  label: 'AI Insights',   bg: AppColors.amberLight, iconColor: AppColors.amber,
+            onTap: () => showToast(context, 'Opening AI insights…')),
+        ActionItem(icon: Icons.chat_rounded,          label: 'Message',       bg: AppColors.blueLight,  iconColor: AppColors.blue,
+            onTap: () => showMessageTeacher(context)),
+      ]),
+      secLabel('Recent Updates'),
+      appCard(Padding(padding: const EdgeInsets.all(16), child: timeline([
+        TlItem(title: 'Grade Posted',       sub: 'Math Mid-Term: 82/100 · B+',    time: 'Today',      color: AppColors.blue),
+        TlItem(title: 'Attendance Alert',   sub: 'Late arrival on Apr 1',          time: '2 days ago', color: AppColors.amber),
+        TlItem(title: 'Assignment Graded',  sub: 'History Essay: A · Great work!', time: '3 days ago', color: AppColors.green),
+        TlItem(title: 'Fee Due Reminder',   sub: 'Term 2 fee due Apr 15',          time: 'Apr 1',      color: AppColors.red),
+      ]))),
+      const SizedBox(height: 16),
+    ]);
+  }
 }
 
 class _ChildOverview extends StatelessWidget {
   const _ChildOverview();
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+    valueListenable: AppStore.instance.globalAttendanceInt,
+    builder: (context, attVal, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     pageTitle('Child Overview', subtitle: 'Arjun Mehta · Grade 10A · Term 2'),
     statGrid([
       StatItem(icon: Icons.bar_chart_rounded,    iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '88%', label: 'Overall Avg',    delta: 3),
-      StatItem(icon: Icons.fact_check_rounded,   iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '91%', label: 'Attendance',     delta: 1),
+      StatItem(icon: Icons.fact_check_rounded,   iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '$attVal%', label: 'Attendance',     delta: 1),
       StatItem(icon: Icons.description_rounded,  iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '2',   label: 'Pending Tasks',  delta: 0),
       StatItem(icon: Icons.emoji_events_rounded, iconBg: AppColors.tealLight,  iconColor: AppColors.teal,  val: 'B+',  label: 'GPA Band',       delta: 0),
     ]),
@@ -84,7 +112,7 @@ class _ChildOverview extends StatelessWidget {
     Padding(padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
         child: outlineBtn('Message Teacher', onTap: () => showMessageTeacher(context))),
     const SizedBox(height: 16),
-  ]);
+  ]));
 }
 
 class _Grades extends StatelessWidget {
@@ -126,17 +154,19 @@ class _Grades extends StatelessWidget {
 class _Attendance extends StatelessWidget {
   const _Attendance();
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+    valueListenable: AppStore.instance.globalAttendanceInt,
+    builder: (context, attVal, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     pageTitle('Attendance', subtitle: "Arjun's attendance record"),
     appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _attStat('91%', AppColors.green, 'Overall'),
+        _attStat('$attVal%', AppColors.green, 'Overall'),
         _attStat('46',  AppColors.blue,  'Present'),
         _attStat('3',   AppColors.red,   'Absent'),
         _attStat('2',   AppColors.amber, 'Late'),
       ]),
       const Divider(height: 28, color: AppColors.border),
-      ProgressBar(label: 'Attendance Rate', value: 91, gradient: greenGrad()),
+      ProgressBar(label: 'Attendance Rate', value: attVal, gradient: greenGrad()),
       const SizedBox(height: 8),
       Row(children: [
         const Icon(Icons.info_outline_rounded, size: 12, color: AppColors.text4),
@@ -146,7 +176,7 @@ class _Attendance extends StatelessWidget {
       ]),
     ]))),
     const SizedBox(height: 16),
-  ]);
+  ]));
   Widget _attStat(String val, Color color, String label) => Column(children: [
     Text(val, style: GoogleFonts.dmSerifDisplay(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
     Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.text4)),

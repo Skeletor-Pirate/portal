@@ -6,6 +6,7 @@ import '../models/role_config.dart';
 import '../widgets/nav_icons.dart';
 import 'page_router.dart';
 import '../services/dev_auth.dart';
+import '../services/app_store.dart';
 
 class AppScreen extends StatefulWidget {
   final UserRole role;
@@ -251,7 +252,9 @@ class _AppScreenState extends State<AppScreen> {
             ),
             const SizedBox(width: 13),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(cfg.name,
+              Text(AppStore.instance.currentUserName.isNotEmpty
+                    ? AppStore.instance.currentUserName
+                    : cfg.name,
                   style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -259,6 +262,10 @@ class _AppScreenState extends State<AppScreen> {
               Text(cfg.label,
                   style: GoogleFonts.plusJakartaSans(
                       fontSize: 11, color: Colors.white.withOpacity(0.65))),
+              if (AppStore.instance.currentSchool.isNotEmpty)
+                Text(AppStore.instance.currentSchool,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10, color: Colors.white.withOpacity(0.45))),
             ]),
           ]),
         ),
@@ -326,7 +333,7 @@ class _AppScreenState extends State<AppScreen> {
         Padding(
           padding: EdgeInsets.fromLTRB(10, 10, 10, 10 + bottomPad),
           child: GestureDetector(
-            onTap: () { DevAuth.deactivate(); Navigator.of(context).pop(); },
+            onTap: () { DevAuth.deactivate(); AppStore.instance.clearSession(); Navigator.of(context).pop(); },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(

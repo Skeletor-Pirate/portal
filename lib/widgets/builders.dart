@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
+import '../services/app_store.dart';
 
 // ── SECTION LABEL ──────────────────────────────
 Widget secLabel(String text) => Padding(
@@ -986,11 +987,14 @@ Widget childCard() => Container(
           Text('Grade 10A · Roll #018', style: GoogleFonts.plusJakartaSans(
               fontSize: 11, color: Colors.white.withOpacity(0.7))),
           const SizedBox(height: 10),
-          Row(children: [
-            _cmVal('88%', 'Grade'), const SizedBox(width: 16),
-            _cmVal('91%', 'Attend'), const SizedBox(width: 16),
-            _cmVal('2', 'Pending'),
-          ]),
+          ValueListenableBuilder<int>(
+            valueListenable: AppStore.instance.globalAttendanceInt,
+            builder: (ctx, attVal, _) => Row(children: [
+              _cmVal('88%', 'Grade'), const SizedBox(width: 16),
+              _cmVal('$attVal%', 'Attend'), const SizedBox(width: 16),
+              _cmVal('2', 'Pending'),
+            ]),
+          ),
         ])),
       ]),
     );

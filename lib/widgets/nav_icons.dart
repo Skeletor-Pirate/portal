@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 IconData navIcon(String name) {
   switch (name) {
+    case 'enrollments':  return Icons.how_to_reg_rounded;
     case 'dashboard':    return Icons.grid_view_rounded;
     case 'schools':      return Icons.account_balance_rounded;
     case 'domains':      return Icons.language_rounded;
