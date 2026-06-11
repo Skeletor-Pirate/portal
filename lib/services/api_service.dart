@@ -23,6 +23,11 @@ String get kBaseUrl {
   // return 'http://127.0.0.1:8000';
 }
 
+String get kAiBaseUrl {
+  // The AI service typically runs on port 8001
+  return 'http://187.127.139.208:8001';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TOKEN STORE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -632,6 +637,37 @@ class ApiService {
   }
 
   Future<void> removeUserRole(String id) => _deleteWithFallback('/api/v1/accounts/user-roles/$id/', fallback: '/api/v1/user-roles/$id/');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AI TOOLS  /api/v1/generate_*
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<dynamic> _callAiApi(String path, Map<String, dynamic> body) async {
+    final uri = Uri.parse('$kAiBaseUrl$path');
+    final h = <String, String>{'Content-Type': 'application/json'};
+    if (TokenStore.access != null) {
+      h['Authorization'] = 'Bearer ${TokenStore.access}';
+    }
+    try {
+      final res = await _client.post(uri, headers: h, body: jsonEncode(body));
+      if (res.statusCode >= 400) {
+        throw ApiException('AI API Error ${res.statusCode}', statusCode: res.statusCode);
+      }
+      return jsonDecode(res.body);
+    } catch (e) {
+      // Fallback to main API base url if AI port fails
+      final fallbackRes = await post(path, body);
+      return fallbackRes;
+    }
+  }
+
+  Future<dynamic> generateLessonPlan(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_lesson_plan', payload);
+  Future<dynamic> generateWorksheet(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_worksheet', payload);
+  Future<dynamic> generateQuiz(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_quiz', payload);
+  Future<dynamic> generateQuestionPaper(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_question_paper', payload);
+  Future<dynamic> generateStudyNotes(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_study_notes', payload);
+  Future<dynamic> generatePresentationOutline(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_presentation_outline', payload);
+  Future<dynamic> generateRubric(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_rubric', payload);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

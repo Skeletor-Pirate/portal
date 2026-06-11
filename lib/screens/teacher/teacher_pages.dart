@@ -15,9 +15,11 @@ class TeacherPages extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (page) {
       case 'dashboard':   return const _Dashboard();
+      case 'classes':     return const _Classes();
       case 'attendance':  return const _Attendance();
-      case 'assignments': return const _Assignments();
       case 'grades':      return const _Grades();
+      case 'aitools':     return const _AITools();
+      case 'assignments': return const _Assignments();
       case 'timetable':   return const _Timetable();
       case 'exams':       return const _Exams();
       case 'analytics':   return const _Analytics();
@@ -38,12 +40,17 @@ class _Dashboard extends StatefulWidget {
 class _DashboardState extends State<_Dashboard> {
   ProfileMe? _profile;
   List<TeacherAssignment> _myAssignments = [];
+  double _avgAttendance = 0.0;
+  double _avgPerformance = 0.0;
+  bool _statsLoading = true;
 
   @override
   void initState() {
     super.initState();
     if (TokenStore.hasTokens && !AppStore.instance.isDevMode) {
       _loadData();
+    } else {
+      _statsLoading = false;
     }
   }
 
@@ -57,12 +64,88 @@ class _DashboardState extends State<_Dashboard> {
       if (ctx.profiles.teacher.id != null) {
         final res = await ApiService().getTeacherAssignments(teacherId: ctx.profiles.teacher.id, status: 'current');
         if (mounted) setState(() => _myAssignments = res.results);
+        await _loadStats();
       }
     } catch (_) {
       try {
         final p = await ApiService().getMyProfile();
         if (mounted) setState(() => _profile = p);
       } catch (_) {}
+      if (mounted) setState(() => _statsLoading = false);
+    }
+  }
+
+  Future<void> _loadStats() async {
+    if (_myAssignments.isEmpty) {
+      if (mounted) setState(() => _statsLoading = false);
+      return;
+    }
+    
+    int totalAttendanceRecords = 0;
+    int totalPresent = 0;
+    double totalObtainedMarks = 0;
+    double totalMaxMarks = 0;
+
+    final api = ApiService();
+
+    await Future.wait(_myAssignments.map((cls) async {
+      final sectionId = cls.sectionId;
+      final academicYearId = cls.academicYearId;
+      final subjectId = cls.subjectId;
+
+      if (sectionId == null || academicYearId == null) return;
+
+      try {
+        final results = await Future.wait([
+          api.getEnrollments(status: 'current'),
+          api.getAttendance(sectionId: sectionId),
+          subjectId != null ? api.getGrades(subjectId: subjectId) : Future.value(PaginatedResult<StudentGrade>(count: 0, results: [])),
+        ]);
+
+        final enrollments = (results[0] as PaginatedResult<Enrollment>).results.where((e) => e.sectionId == sectionId).toList();
+        final attendance = (results[1] as PaginatedResult<AttendanceRecord>).results;
+        final grades = (results[2] as PaginatedResult<StudentGrade>).results;
+
+        final Map<String, int> attTotal = {};
+        final Map<String, int> attPresent = {};
+        for (var record in attendance) {
+          attTotal[record.studentId] = (attTotal[record.studentId] ?? 0) + 1;
+          if (record.status == 'Present' || record.status == 'Late') {
+            attPresent[record.studentId] = (attPresent[record.studentId] ?? 0) + 1;
+          }
+        }
+
+        final Map<String, StudentGrade> maxGrades = {};
+        for (var grade in grades) {
+          final sId = grade.studentId;
+          final currentMax = maxGrades[sId]?.marksObtained ?? 0;
+          if (grade.marksObtained > currentMax || !maxGrades.containsKey(sId)) {
+            maxGrades[sId] = grade;
+          }
+        }
+
+        for (var student in enrollments) {
+          final sId = student.studentId;
+          if (attTotal.containsKey(sId)) {
+            totalAttendanceRecords += attTotal[sId]!;
+            totalPresent += attPresent[sId] ?? 0;
+          }
+          if (maxGrades.containsKey(sId)) {
+            totalObtainedMarks += maxGrades[sId]!.marksObtained;
+            totalMaxMarks += maxGrades[sId]!.maxMarks;
+          }
+        }
+      } catch (e) {
+        // Ignore individual class fetch errors
+      }
+    }));
+
+    if (mounted) {
+      setState(() {
+        _avgAttendance = totalAttendanceRecords > 0 ? (totalPresent / totalAttendanceRecords * 100) : 0.0;
+        _avgPerformance = totalMaxMarks > 0 ? (totalObtainedMarks / totalMaxMarks * 100) : 0.0;
+        _statsLoading = false;
+      });
     }
   }
 
@@ -73,6 +156,9 @@ class _DashboardState extends State<_Dashboard> {
     final name   = store.currentUserName.isNotEmpty ? store.currentUserName : (_profile?.displayName ?? cfg.name);
     final school = store.currentSchool.isNotEmpty ? store.currentSchool : (_profile?.schoolName ?? 'Westfield Academy');
 
+    final attStr = _statsLoading ? '--' : _avgAttendance.toStringAsFixed(1);
+    final perfStr = _statsLoading ? '--' : _avgPerformance.toStringAsFixed(1);
+
     return ValueListenableBuilder(
       valueListenable: AppStore.instance.assignments,
       builder: (context, asgns, _) {
@@ -81,15 +167,12 @@ class _DashboardState extends State<_Dashboard> {
           heroPortrait(cfg.avatarAsset, school),
           profileInfo(name, 'Faculty', cfg.idLabel),
           pageTitle('Dashboard', subtitle: 'AI-Powered Portal'),
-          ValueListenableBuilder<int>(
-            valueListenable: AppStore.instance.globalAttendanceInt,
-            builder: (ctx, attVal, _) => quickStatsBar([
-              QsItem(val: '${_myAssignments.length}', label: 'My Classes'),
-              QsItem(val: '$attVal%', label: 'Attendance'),
-              QsItem(val: '$pending', label: 'Pending'),
-              QsItem(val: '${asgns.length}', label: 'Assignments'),
-            ]),
-          ),
+          quickStatsBar([
+            QsItem(val: '${_myAssignments.length}', label: 'My Classes'),
+            QsItem(val: '$attStr%', label: 'Attendance'),
+            QsItem(val: '$perfStr%', label: 'Performance'),
+            QsItem(val: '${asgns.length}', label: 'Assignments'),
+          ]),
 
           if (_myAssignments.isNotEmpty) ...[
             secLabel("My Class Assignments"),
@@ -956,4 +1039,283 @@ class _Analytics extends StatelessWidget {
       ])),
     ],
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MY CLASSES
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _Classes extends StatefulWidget {
+  const _Classes();
+  @override State<_Classes> createState() => _ClassesState();
+}
+
+class _ClassesState extends State<_Classes> {
+  List<TeacherAssignment> _assignments = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (!TokenStore.hasTokens) {
+      setState(() => _loading = false);
+      return;
+    }
+    try {
+      final ctx = await ApiService().getProfileContext();
+      if (ctx.profiles.teacher.id != null) {
+        final res = await ApiService().getTeacherAssignments(teacherId: ctx.profiles.teacher.id, status: 'current');
+        if (mounted) {
+          setState(() {
+            _assignments = res.results;
+            _loading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _loading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Column(children: [
+        pageTitle('My Classes'),
+        const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: AppColors.blue))),
+      ]);
+    }
+    
+    if (!TokenStore.hasTokens) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        pageTitle('My Classes', subtitle: 'Sign in to see live classes'),
+        appCard(Padding(padding: const EdgeInsets.all(16), child: Text('Sign in with real credentials to view assigned classes.', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3, height: 1.5)))),
+        const SizedBox(height: 16),
+      ]);
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      pageTitle('My Classes', subtitle: '${_assignments.length} Active Assignments'),
+      if (_assignments.isEmpty)
+        Padding(padding: const EdgeInsets.all(20), child: Center(child: Text('No classes assigned.', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text3)))),
+      ..._assignments.map((a) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: appCard(Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: AppColors.blueLight, borderRadius: BorderRadius.circular(rSm)),
+                child: Text('Active', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.blue, letterSpacing: 1.0)),
+              ),
+              if (a.isClassTeacher) appBadge('Class Teacher', bg: AppColors.amberLight, color: AppColors.amber),
+            ]),
+            const SizedBox(height: 12),
+            Text('${a.subjectName ?? "Subject"} ${a.classLevelName?.replaceAll("Grade ", "") ?? ""}-${a.sectionName ?? ""}', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.text1)),
+            const SizedBox(height: 4),
+            Text('${a.academicYearName ?? ""}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.text3)),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(rSm)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('STATUS', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppColors.text4)),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    const Icon(Icons.groups_rounded, size: 14, color: AppColors.blue),
+                    const SizedBox(width: 6),
+                    Text('Enrolled', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text1)),
+                  ]),
+                ]),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(rSm)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('AVG. PERFORMANCE', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppColors.text4)),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    const Icon(Icons.horizontal_rule_rounded, size: 14, color: Colors.black),
+                    const SizedBox(width: 6),
+                    Text('N/A', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black)),
+                  ]),
+                ]),
+              )),
+            ]),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(rSm)),
+              child: Center(child: Text('View Class Details →', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.blue))),
+            ),
+          ]),
+        )),
+      )),
+      const SizedBox(height: 16),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI TOOLS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AITools extends StatefulWidget {
+  const _AITools();
+  @override State<_AITools> createState() => _AIToolsState();
+}
+
+class _AIToolsState extends State<_AITools> {
+  final TextEditingController _topicCtrl = TextEditingController();
+  final TextEditingController _gradeCtrl = TextEditingController();
+  
+  bool _loading = false;
+  String? _result;
+  String? _error;
+  String _activeTool = 'Lesson Plan';
+
+  final List<String> _tools = [
+    'Lesson Plan', 'Worksheet', 'Quiz', 'Study Notes', 'Rubric'
+  ];
+
+  Future<void> _generate() async {
+    final topic = _topicCtrl.text.trim();
+    if (topic.isEmpty) {
+      showToast(context, 'Please enter a topic', color: AppColors.amber);
+      return;
+    }
+    setState(() { _loading = true; _result = null; _error = null; });
+    try {
+      final payload = {
+        'topic': topic,
+        'grade_level': _gradeCtrl.text.trim().isNotEmpty ? _gradeCtrl.text.trim() : 'General',
+      };
+      
+      dynamic res;
+      if (_activeTool == 'Lesson Plan') res = await ApiService().generateLessonPlan(payload);
+      else if (_activeTool == 'Worksheet') res = await ApiService().generateWorksheet(payload);
+      else if (_activeTool == 'Quiz') res = await ApiService().generateQuiz(payload);
+      else if (_activeTool == 'Study Notes') res = await ApiService().generateStudyNotes(payload);
+      else if (_activeTool == 'Rubric') res = await ApiService().generateRubric(payload);
+      
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          if (res is Map && res.containsKey('content')) {
+            _result = res['content'];
+          } else if (res is Map && res.containsKey('lesson_plan')) {
+            _result = res['lesson_plan'];
+          } else {
+            _result = res.toString();
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _error = e.toString(); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      pageTitle('AI Tools Workspace', subtitle: 'Generate content instantly'),
+      
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+        child: Row(children: _tools.map((t) => GestureDetector(
+          onTap: () => setState(() { _activeTool = t; _result = null; _error = null; }),
+          child: Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: _activeTool == t ? const Color(0xFF6B38D4) : AppColors.surface,
+              border: Border.all(color: _activeTool == t ? const Color(0xFF6B38D4) : AppColors.border, width: 1.5),
+              borderRadius: BorderRadius.circular(rFull),
+            ),
+            child: Row(children: [
+              Icon(Icons.auto_awesome_rounded, size: 12, color: _activeTool == t ? Colors.white : AppColors.text4),
+              const SizedBox(width: 6),
+              Text(t, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: _activeTool == t ? Colors.white : AppColors.text3)),
+            ]),
+          ),
+        )).toList()),
+      ),
+      
+      appCard(Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Topic / Subject', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _topicCtrl,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
+            decoration: InputDecoration(
+              hintText: 'e.g. Photosynthesis, Algebra II',
+              filled: true, fillColor: AppColors.bg,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.blue, width: 1.5)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Grade Level (Optional)', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _gradeCtrl,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
+            decoration: InputDecoration(
+              hintText: 'e.g. Grade 10',
+              filled: true, fillColor: AppColors.bg,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.blue, width: 1.5)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: _loading ? null : _generate,
+            child: Container(
+              width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(color: const Color(0xFF6B38D4), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowSm),
+              child: Center(child: _loading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.psychology_rounded, size: 16, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text('Generate $_activeTool', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                  ])),
+            ),
+          ),
+        ]),
+      )),
+      
+      if (_error != null)
+        Padding(padding: const EdgeInsets.fromLTRB(14, 16, 14, 0), child: _apiWarning(_error!)),
+        
+      if (_result != null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 0),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rLg), boxShadow: shadowSm),
+            child: SelectableText(_result!, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1, height: 1.5)),
+          ),
+        ),
+        
+      const SizedBox(height: 32),
+    ]);
+  }
 }

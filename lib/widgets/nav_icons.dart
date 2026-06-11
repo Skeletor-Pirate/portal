@@ -32,6 +32,8 @@ IconData navIcon(String name) {
     case 'manualpay':    return Icons.edit_note_rounded;
     case 'authorize':    return Icons.lock_open_rounded;
     case 'reports':      return Icons.pie_chart_rounded;
+    case 'classes':      return Icons.groups_rounded;
+    case 'aitools':      return Icons.psychology_rounded;
     default:             return Icons.circle_rounded;
   }
 }
