@@ -240,5 +240,26 @@ Academic Architect is now:
 - Multi-tenant ready  
 - Fully responsive UI  
 - Role-driven architecture  
+- **Dynamic Server Configuration**
+- **LaTeX Math Rendering & AI Output Saving**
+- **Skeleton Loaders for UI Aesthetics**
 
 **Ready for backend integration & deployment 🚀**
+
+---
+
+# ✨ New Features Deep Dive (v4.1)
+
+## 🌐 Dynamic Server Configuration
+- Hardcoded URLs have been removed from `api_service.dart`.
+- Endpoints are now driven by `ConfigService`, which persists them via `shared_preferences`.
+- **UI:** A settings icon `(Icons.settings_rounded)` on the Login Screen allows users to manually set the *Backend API URL* and *AI Service URL* without rebuilding the APK.
+
+## 🧮 LaTeX Support & Skeleton Loading
+- **LaTeX Rendering:** Uses `flutter_markdown_latex` with `MarkdownBody`. The AI output can now flawlessly render complex mathematical equations (inline and block).
+- **Skeleton Loading:** The standard `CircularProgressIndicator` during AI generation has been replaced with a high-end `Shimmer` skeleton loader (using the `shimmer` package), matching professional ERP aesthetics.
+
+## 💾 AI Content Saving & Sharing
+- **Copy:** Copies the generated output directly to the device clipboard.
+- **Download:** Uses `path_provider` and `share_plus` to generate a `.txt` file and prompt the native share sheet.
+- **Save to Workspace:** Posts the AI content directly to the backend's `/api/v1/academics/saved-ai-content/` endpoint, storing it securely for future access.

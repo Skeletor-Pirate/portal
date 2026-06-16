@@ -9,6 +9,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 import '../services/app_store.dart';
 import '../services/api_service.dart' hide Exam;
+import '../services/ai_service.dart';
+import '../services/db_service.dart';
 import 'builders.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,8 +105,9 @@ Future<bool> confirmDialog(BuildContext ctx,
 
 // ── Create Assignment ──────────────────────────────────────────────────────
 
-void showCreateAssignment(BuildContext ctx) {
-  showSheet(ctx, _CreateAssignmentSheet(), tall: true);
+Future<void> showCreateAssignment(BuildContext ctx, {VoidCallback? onDone}) async {
+  await showSheet(ctx, _CreateAssignmentSheet(), tall: true);
+  if (onDone != null) onDone();
 }
 
 class _CreateAssignmentSheet extends StatefulWidget {
@@ -114,17 +117,82 @@ class _CreateAssignmentSheet extends StatefulWidget {
 class _CreateAssignmentSheetState extends State<_CreateAssignmentSheet> {
   final _titleCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
-  String _subject  = 'Science 10-A';
-  String _due      = 'Apr 20, 2025';
-  bool   _done     = false;
+  final _dueCtrl   = TextEditingController();
+  
+  List<TeacherAssignment> _classes = [];
+  String? _selectedClassId;
+  
+  bool _loading = false;
+  bool _done    = false;
+  String? _error;
 
   @override
-  void dispose() { _titleCtrl.dispose(); _descCtrl.dispose(); super.dispose(); }
+  void initState() {
+    super.initState();
+    _loadClasses();
+    final now = DateTime.now().add(const Duration(days: 7));
+    _dueCtrl.text = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+  }
+
+  Future<void> _loadClasses() async {
+    if (!TokenStore.hasTokens) return;
+    try {
+      final ctx = await ApiService().getProfileContext();
+      if (ctx.profiles.teacher.id != null) {
+        final res = await ApiService().getTeacherAssignments(teacherId: ctx.profiles.teacher.id, status: 'current');
+        if (mounted) setState(() {
+          _classes = res.results;
+          _selectedClassId = res.results.isNotEmpty ? res.results.first.id : null;
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() { _titleCtrl.dispose(); _descCtrl.dispose(); _dueCtrl.dispose(); super.dispose(); }
+
+  Future<void> _submit() async {
+    if (_titleCtrl.text.trim().isEmpty) {
+      showToast(context, 'Please enter a title', color: AppColors.red, icon: Icons.error_outline_rounded);
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      if (TokenStore.hasTokens && _selectedClassId != null) {
+        final selectedClass = _classes.firstWhere((c) => c.id == _selectedClassId);
+        final me = await ApiService().getMe();
+        try {
+          await DbService.createAssignment(
+            title: _titleCtrl.text.trim(),
+            description: _descCtrl.text.trim(),
+            subjectId: selectedClass.subjectId!,
+            sectionId: selectedClass.sectionId!,
+            teacherId: me.id,
+            schoolId: me.schoolId ?? '',
+            dueDate: DateTime.parse(_dueCtrl.text.trim()),
+          );
+        } catch (e) {
+          throw ApiException('Failed to create assignment in DB: $e');
+        }
+      }
+      
+      AppStore.instance.prependActivity('Assignment Created', _titleCtrl.text.trim());
+      
+      if (mounted) setState(() { _done = true; _loading = false; });
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) Navigator.pop(context);
+      });
+    } on ApiException catch (e) {
+      if (mounted) setState(() { _error = e.message; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     if (_done) return _successPanel(context, 'Assignment Created!',
-        'Students in $_subject have been notified.', Icons.note_add_rounded);
+        'Students have been notified.', Icons.note_add_rounded);
 
     return Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), child:
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -132,41 +200,43 @@ class _CreateAssignmentSheetState extends State<_CreateAssignmentSheet> {
         const SizedBox(height: 20),
         _label('Title'),
         _tf(_titleCtrl, 'e.g. Chapter 5: Forces Lab Report'),
-        _label('Class'),
-        _dropdown(_subject, ['Science 10-A','Physics 11-B','Chemistry 12'],
-            (v) => setState(() => _subject = v!)),
-        _label('Due Date'),
-        _dropdown(_due, ['Apr 15, 2025','Apr 20, 2025','Apr 25, 2025','May 1, 2025'],
-            (v) => setState(() => _due = v!)),
+        
+        if (_classes.isNotEmpty) ...[
+          _label('Class'),
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rMd)),
+            child: DropdownButtonHideUnderline(child: DropdownButton<String>(
+              value: _selectedClassId,
+              isExpanded: true,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
+              items: _classes.map((c) => DropdownMenuItem(value: c.id, child: Text('${c.subjectName ?? "Subject"} ${c.classLevelName?.replaceAll("Grade ", "") ?? ""}-${c.sectionName ?? ""}'))).toList(),
+              onChanged: (v) => setState(() => _selectedClassId = v),
+            )),
+          ),
+        ],
+        
+        _label('Due Date (YYYY-MM-DD)'),
+        _tf(_dueCtrl, '2025-04-20'),
         _label('Instructions (optional)'),
         _tf(_descCtrl, 'Write detailed instructions here...', lines: 3),
+        
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd)),
+            child: Text(_error!, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.red))),
+        ],
+        
         const SizedBox(height: 24),
-        navyBtn('Create Assignment', onTap: () {
-          if (_titleCtrl.text.trim().isEmpty) {
-            showToast(context, 'Please enter a title', color: AppColors.red, icon: Icons.error_outline_rounded);
-            return;
-          }
-          // ── Write to AppStore so Assignments page & student page update instantly
-          final store = AppStore.instance;
-          final newId = AppStore.nextId();
-          final subLabel = _subject.split(' ').first.toUpperCase();
-          store.addAssignment(Assignment(
-            id: newId,
-            sub: subLabel,
-            title: _titleCtrl.text.trim(),
-            due: _due.replaceAll(', 2025', ''),
-            className: _subject,
-            submitted: 0,
-            total: 28,
-            color: 'blue',
-          ));
-          store.addAssignmentToStudent(subLabel, _titleCtrl.text.trim(), _due.replaceAll(', 2025', ''));
-          store.prependActivity('Assignment Created', '\${_titleCtrl.text.trim()} · \$_subject');
-          setState(() => _done = true);
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) Navigator.pop(context);
-          });
-        }),
+        GestureDetector(
+          onTap: _loading ? null : _submit,
+          child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.gradA, AppColors.gradC]), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowMd),
+            child: Center(child: _loading
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text('Create Assignment', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)))),
+        ),
       ]),
     );
   }
@@ -471,23 +541,6 @@ class _AiChatSheetState extends State<_AiChatSheet> {
   ];
   bool _thinking = false;
 
-  static const _replies = {
-    'physics': "Physics tip: For Newton's laws, remember F=ma. The net force equals mass times acceleration. For your Chapter 5 lab report, focus on measuring force and calculating resulting acceleration accurately.",
-    'math': "For quadratic equations, use the formula x = (−b ± √(b²−4ac)) / 2a. Make sure to identify a, b, and c from the standard form ax²+bx+c=0 first.",
-    'english': "For The Great Gatsby essay: focus on the theme of the American Dream vs reality. Gatsby represents the corrupted version — wealth without moral foundation. Use specific quotes from Chapter 5 and 9.",
-    'exam': "Exam prep strategy: Start with past papers, identify weak topics, then do focused revision. Sleep 8 hrs before the exam. Arrive 15 minutes early.",
-    'attendance': "Your attendance is 96% — well above the 75% minimum. Keep it up! Consistent attendance correlates strongly with better grades.",
-    'grade': "Your current average is 87.4% — an A−. You're doing great! To push into A territory, focus on Chemistry (79%) and English (84%). Those have the most room for improvement.",
-  };
-
-  String _getReply(String q) {
-    final lower = q.toLowerCase();
-    for (final k in _replies.keys) {
-      if (lower.contains(k)) return _replies[k]!;
-    }
-    return "Great question! Based on your current performance, I'd suggest reviewing your notes from the past week and focusing on practice problems. Would you like tips on a specific subject?";
-  }
-
   Future<void> _send() async {
     final text = _ctrl.text.trim();
     if (text.isEmpty) return;
@@ -497,10 +550,13 @@ class _AiChatSheetState extends State<_AiChatSheet> {
       _thinking = true;
     });
     _scrollDown();
-    await Future.delayed(const Duration(milliseconds: 1200));
+    
+    // Call real API
+    final reply = await AiService.askDeepSeek(text);
+    
     if (!mounted) return;
     setState(() {
-      _msgs.add(_ChatMsg(false, _getReply(text)));
+      _msgs.add(_ChatMsg(false, reply));
       _thinking = false;
     });
     _scrollDown();

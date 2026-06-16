@@ -34,29 +34,97 @@ class _Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<_Dashboard> {
   ProfileMe? _profile;
+  ParentStudentMapping? _mapping;
+  double _childAvg = 0.0;
+  double _childAtt = 0.0;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    if (TokenStore.hasTokens && !AppStore.instance.isDevMode) {
-      ApiService().getMyProfile().then((p) {
-        if (mounted) setState(() => _profile = p);
-      }).catchError((_) {});
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (!TokenStore.hasTokens) {
+      setState(() => _loading = false);
+      return;
     }
+    try {
+      final api = ApiService();
+      final p = await api.getMyProfile();
+      if (mounted) setState(() => _profile = p);
+
+      final maps = await api.getParentStudentMappings();
+      if (maps.results.isNotEmpty) {
+        final m = maps.results.first;
+        final gradesRes = await api.getGrades(studentId: m.studentId);
+        final attRes = await api.getAttendance(studentId: m.studentId);
+        
+        double totalObt = 0, totalMax = 0;
+        for (var g in gradesRes.results) {
+          totalObt += g.marksObtained ?? 0;
+          totalMax += g.maxMarks ?? 100;
+        }
+        double avg = totalMax > 0 ? (totalObt / totalMax * 100) : 0.0;
+        
+        int present = 0;
+        for (var a in attRes.results) {
+          if (a.status == 'Present' || a.status == 'Late') present++;
+        }
+        double att = attRes.results.isNotEmpty ? (present / attRes.results.length * 100) : 0.0;
+        
+        if (mounted) setState(() {
+          _mapping = m;
+          _childAvg = avg;
+          _childAtt = att;
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final cfg   = kRoles[UserRole.parent]!;
     final store = AppStore.instance;
-    final name   = store.currentUserName.isNotEmpty ? store.currentUserName : 'Alexander Pierce';
-    final school = store.currentSchool.isNotEmpty ? store.currentSchool : 'Westfield Academy';
+    final name   = store.currentUserName.isNotEmpty ? store.currentUserName : (_profile?.displayName ?? 'Parent');
+    final school = store.currentSchool.isNotEmpty ? store.currentSchool : (_profile?.schoolName ?? 'School');
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       heroPortrait(cfg.avatarAsset, school),
       profileInfo(name, 'Guardian', cfg.idLabel),
       pageTitle('Dashboard'),
-      childCard(),
+      if (_loading) const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: AppColors.blue)))
+      else if (_mapping != null) ...[
+        appCard(Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(width: 48, height: 48, decoration: const BoxDecoration(color: AppColors.blueLight, shape: BoxShape.circle), child: const Icon(Icons.person_rounded, color: AppColors.blue)),
+              const SizedBox(width: 14),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_mapping!.studentName ?? 'Student', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.text1)),
+                Text('${_mapping!.relationship} · Mapped', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3)),
+              ])),
+            ]),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(rSm)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('AVG. SCORE', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppColors.text4)),
+                const SizedBox(height: 4),
+                Text('${_childAvg.toStringAsFixed(1)}%', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.green)),
+              ]))),
+              const SizedBox(width: 12),
+              Expanded(child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(rSm)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('ATTENDANCE', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppColors.text4)),
+                const SizedBox(height: 4),
+                Text('${_childAtt.toStringAsFixed(1)}%', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.blue)),
+              ]))),
+            ]),
+          ]),
+        )),
+      ] else appCard(const Padding(padding: EdgeInsets.all(20), child: Center(child: Text('No student linked to this account.')))),
       secLabel('Quick Actions'),
       actionGrid([
         ActionItem(icon: Icons.bar_chart_rounded,     label: 'Child Grades',  bg: AppColors.blueLight,  iconColor: AppColors.blue,
@@ -72,133 +140,351 @@ class _DashboardState extends State<_Dashboard> {
         ActionItem(icon: Icons.chat_rounded,          label: 'Message',       bg: AppColors.blueLight,  iconColor: AppColors.blue,
             onTap: () => showMessageTeacher(context)),
       ]),
-      secLabel('Recent Updates'),
-      appCard(Padding(padding: const EdgeInsets.all(16), child: timeline([
-        TlItem(title: 'Grade Posted',       sub: 'Math Mid-Term: 82/100 · B+',    time: 'Today',      color: AppColors.blue),
-        TlItem(title: 'Attendance Alert',   sub: 'Late arrival on Apr 1',          time: '2 days ago', color: AppColors.amber),
-        TlItem(title: 'Assignment Graded',  sub: 'History Essay: A · Great work!', time: '3 days ago', color: AppColors.green),
-        TlItem(title: 'Fee Due Reminder',   sub: 'Term 2 fee due Apr 15',          time: 'Apr 1',      color: AppColors.red),
-      ]))),
       const SizedBox(height: 16),
     ]);
   }
 }
 
-class _ChildOverview extends StatelessWidget {
+class _ChildOverview extends StatefulWidget {
   const _ChildOverview();
-  @override
-  Widget build(BuildContext context) => ValueListenableBuilder<int>(
-    valueListenable: AppStore.instance.globalAttendanceInt,
-    builder: (context, attVal, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    pageTitle('Child Overview', subtitle: 'Arjun Mehta · Grade 10A · Term 2'),
-    statGrid([
-      StatItem(icon: Icons.bar_chart_rounded,    iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '88%', label: 'Overall Avg',    delta: 3),
-      StatItem(icon: Icons.fact_check_rounded,   iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '$attVal%', label: 'Attendance',     delta: 1),
-      StatItem(icon: Icons.description_rounded,  iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '2',   label: 'Pending Tasks',  delta: 0),
-      StatItem(icon: Icons.emoji_events_rounded, iconBg: AppColors.tealLight,  iconColor: AppColors.teal,  val: 'B+',  label: 'GPA Band',       delta: 0),
-    ]),
-    secLabel("Today's Schedule"),
-    appCard(ttRows([
-      TtItem(time: '08:00–09:00', subject: 'Mathematics', room: 'Room 101', status: 'Done',     barColor: AppColors.blue,  badgeBg: AppColors.greenLight,    badgeColor: AppColors.green),
-      TtItem(time: '09:15–10:15', subject: 'Physics',     room: 'Lab 2',    status: 'Active',   barColor: AppColors.teal,  badgeBg: AppColors.blueLight,     badgeColor: AppColors.blue),
-      TtItem(time: '11:00–12:00', subject: 'English',     room: 'Room 204', status: 'Upcoming', barColor: AppColors.navy,  badgeBg: const Color(0xFFF1F5F9), badgeColor: AppColors.text3),
-      TtItem(time: '13:30–14:30', subject: 'History',     room: 'Room 108', status: 'Upcoming', barColor: AppColors.amber, badgeBg: const Color(0xFFF1F5F9), badgeColor: AppColors.text3),
-    ])),
-    secLabel('Upcoming Deadlines'),
-    appCard(asgnCards([
-      AsgItem(sub: 'MATHEMATICS', title: 'Quadratic Equations Set B', due: 'Tomorrow', barColor: AppColors.blue,  badge: 'Pending',   badgeBg: AppColors.amberLight, badgeColor: AppColors.amber),
-      AsgItem(sub: 'PHYSICS',     title: 'Chapter 4 Problems',        due: 'Apr 12',   barColor: AppColors.teal,  badge: 'Submitted', badgeBg: AppColors.blueLight,  badgeColor: AppColors.blue),
-    ])),
-    Padding(padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-        child: outlineBtn('Message Teacher', onTap: () => showMessageTeacher(context))),
-    const SizedBox(height: 16),
-  ]));
+  @override State<_ChildOverview> createState() => _ChildOverviewState();
 }
 
-class _Grades extends StatelessWidget {
-  const _Grades();
-  @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    pageTitle('Grades & Report Card', subtitle: 'Arjun Mehta · Term 2'),
-    appCard(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('83.5%', style: GoogleFonts.dmSerifDisplay(fontSize: 26, color: AppColors.text1)),
-            Text("Arjun's Average · Term 2", style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text3)),
-          ]),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(gradient: blueGrad(), borderRadius: BorderRadius.circular(rFull)),
-            child: Text('B+', style: GoogleFonts.plusJakartaSans(
-                fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
-          ),
+class _ChildOverviewState extends State<_ChildOverview> {
+  bool _loading = true;
+  ParentStudentMapping? _mapping;
+  double _childAvg = 0.0;
+  double _childAtt = 0.0;
+  String _gpaBand = '—';
+
+  @override void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
+    try {
+      final api = ApiService();
+      final maps = await api.getParentStudentMappings();
+      if (maps.results.isNotEmpty) {
+        final m = maps.results.first;
+        final gradesRes = await api.getGrades(studentId: m.studentId);
+        final attRes = await api.getAttendance(studentId: m.studentId);
+        
+        double totalObt = 0, totalMax = 0;
+        for (var g in gradesRes.results) {
+          totalObt += g.marksObtained ?? 0;
+          totalMax += g.maxMarks ?? 100;
+        }
+        double avg = totalMax > 0 ? (totalObt / totalMax * 100) : 0.0;
+        
+        int present = 0;
+        for (var a in attRes.results) {
+          if (a.status == 'Present' || a.status == 'Late') present++;
+        }
+        double att = attRes.results.isNotEmpty ? (present / attRes.results.length * 100) : 0.0;
+        
+        String gpa = '—';
+        if (gradesRes.results.isNotEmpty) {
+          if (avg >= 90) gpa = 'A+';
+          else if (avg >= 80) gpa = 'A';
+          else if (avg >= 70) gpa = 'B+';
+          else if (avg >= 60) gpa = 'B';
+          else if (avg >= 50) gpa = 'C';
+          else gpa = 'D';
+        }
+
+        if (mounted) setState(() {
+          _mapping = m; _childAvg = avg; _childAtt = att; _gpaBand = gpa;
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      pageTitle('Child Overview', subtitle: _mapping?.studentName ?? 'Overview'),
+      if (_loading) const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: AppColors.blue)))
+      else if (_mapping != null) ...[
+        statGrid([
+          StatItem(icon: Icons.bar_chart_rounded,    iconBg: AppColors.blueLight,  iconColor: AppColors.blue,  val: '${_childAvg.toStringAsFixed(1)}%', label: 'Overall Avg', delta: 0),
+          StatItem(icon: Icons.fact_check_rounded,   iconBg: AppColors.greenLight, iconColor: AppColors.green, val: '${_childAtt.toStringAsFixed(1)}%', label: 'Attendance', delta: 0),
+          StatItem(icon: Icons.description_rounded,  iconBg: AppColors.amberLight, iconColor: AppColors.amber, val: '—',   label: 'Pending Tasks',  delta: 0),
+          StatItem(icon: Icons.emoji_events_rounded, iconBg: AppColors.tealLight,  iconColor: AppColors.teal,  val: _gpaBand,  label: 'GPA Band',       delta: 0),
         ]),
-      ),
-      GradeBars(items: [
-        GradeItem(subject: 'Mathematics', value: 82, color: AppColors.blue),
-        GradeItem(subject: 'English',     value: 79, color: AppColors.navy),
-        GradeItem(subject: 'Physics',     value: 91, color: AppColors.teal),
-        GradeItem(subject: 'Chemistry',   value: 85, color: AppColors.green),
-        GradeItem(subject: 'History',     value: 76, color: AppColors.amber),
-      ]),
-    ])),
-    Padding(padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-        child: outlineBtn('Download Report Card',
-            onTap: () => showDownloadMaterial(context, "Arjun's Report Card"))),
-    const SizedBox(height: 16),
-  ]);
+      ] else appCard(const Padding(padding: EdgeInsets.all(20), child: Center(child: Text('No student linked to this account.')))),
+      const SizedBox(height: 16),
+    ]);
+  }
 }
 
-class _Attendance extends StatelessWidget {
+class _Grades extends StatefulWidget {
+  const _Grades();
+  @override State<_Grades> createState() => _GradesState();
+}
+
+class _GradesState extends State<_Grades> {
+  bool _loading = true;
+  ParentStudentMapping? _mapping;
+  List<StudentGrade> _grades = [];
+
+  @override void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
+    try {
+      final api = ApiService();
+      final maps = await api.getParentStudentMappings();
+      if (maps.results.isNotEmpty) {
+        final m = maps.results.first;
+        final gradesRes = await api.getGrades(studentId: m.studentId);
+        if (mounted) setState(() { _mapping = m; _grades = gradesRes.results; });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override Widget build(BuildContext context) {
+    double totalObt = 0, totalMax = 0;
+    for (var g in _grades) {
+      totalObt += g.marksObtained ?? 0;
+      totalMax += g.maxMarks ?? 100;
+    }
+    double avg = totalMax > 0 ? (totalObt / totalMax * 100) : 0.0;
+    
+    String gpa = '—';
+    if (_grades.isNotEmpty) {
+      if (avg >= 90) gpa = 'A+';
+      else if (avg >= 80) gpa = 'A';
+      else if (avg >= 70) gpa = 'B+';
+      else if (avg >= 60) gpa = 'B';
+      else if (avg >= 50) gpa = 'C';
+      else gpa = 'D';
+    }
+
+    final colors = [AppColors.blue, AppColors.teal, AppColors.navy, AppColors.amber, AppColors.green];
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      pageTitle('Grades & Report Card', subtitle: _mapping?.studentName ?? 'Grades'),
+      if (_loading) const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: AppColors.blue)))
+      else if (_mapping != null && _grades.isEmpty)
+        appCard(const Padding(padding: EdgeInsets.all(20), child: Center(child: Text('No grades published yet.'))))
+      else if (_mapping != null) ...[
+        appCard(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${avg.toStringAsFixed(1)}%', style: GoogleFonts.dmSerifDisplay(fontSize: 26, color: AppColors.text1)),
+                Text("${_mapping!.studentName}'s Average", style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text3)),
+              ]),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(gradient: blueGrad(), borderRadius: BorderRadius.circular(rFull)),
+                child: Text(gpa, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+              ),
+            ]),
+          ),
+          GradeBars(items: _grades.take(6).toList().asMap().entries.map((entry) {
+            final g = entry.value;
+            final pct = (g.maxMarks ?? 100) > 0 ? ((g.marksObtained ?? 0) / (g.maxMarks ?? 100) * 100).clamp(0, 100).toInt() : 0;
+            return GradeItem(subject: g.subjectName ?? 'Subject', value: pct, color: colors[entry.key % colors.length]);
+          }).toList()),
+        ])),
+      ] else appCard(const Padding(padding: EdgeInsets.all(20), child: Center(child: Text('No student linked to this account.')))),
+      const SizedBox(height: 16),
+    ]);
+  }
+}
+
+class _Attendance extends StatefulWidget {
   const _Attendance();
-  @override
-  Widget build(BuildContext context) => ValueListenableBuilder<int>(
-    valueListenable: AppStore.instance.globalAttendanceInt,
-    builder: (context, attVal, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    pageTitle('Attendance', subtitle: "Arjun's attendance record"),
-    appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _attStat('$attVal%', AppColors.green, 'Overall'),
-        _attStat('46',  AppColors.blue,  'Present'),
-        _attStat('3',   AppColors.red,   'Absent'),
-        _attStat('2',   AppColors.amber, 'Late'),
-      ]),
-      const Divider(height: 28, color: AppColors.border),
-      ProgressBar(label: 'Attendance Rate', value: attVal, gradient: greenGrad()),
-      const SizedBox(height: 8),
-      Row(children: [
-        const Icon(Icons.info_outline_rounded, size: 12, color: AppColors.text4),
-        const SizedBox(width: 5),
-        Text('Minimum required: 75% · Arjun is on track',
-            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text3)),
-      ]),
-    ]))),
-    const SizedBox(height: 16),
-  ]));
+  @override State<_Attendance> createState() => _AttendanceState();
+}
+
+class _AttendanceState extends State<_Attendance> {
+  bool _loading = true;
+  ParentStudentMapping? _mapping;
+  int _present = 0, _absent = 0, _late = 0, _total = 0;
+
+  @override void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
+    try {
+      final api = ApiService();
+      final maps = await api.getParentStudentMappings();
+      if (maps.results.isNotEmpty) {
+        final m = maps.results.first;
+        final attRes = await api.getAttendance(studentId: m.studentId);
+        int p = 0, a = 0, l = 0;
+        for (var r in attRes.results) {
+          if (r.status == 'Present') p++;
+          else if (r.status == 'Absent') a++;
+          else if (r.status == 'Late') l++;
+          else p++;
+        }
+        if (mounted) setState(() {
+          _mapping = m; _total = attRes.results.length; _present = p; _absent = a; _late = l;
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override Widget build(BuildContext context) {
+    final overallPct = _total > 0 ? ((_present + _late) / _total * 100) : 0.0;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      pageTitle('Attendance', subtitle: _mapping?.studentName != null ? "${_mapping!.studentName}'s attendance record" : "Attendance"),
+      if (_loading) const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: AppColors.blue)))
+      else if (_mapping != null) ...[
+        appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            _attStat('${overallPct.toStringAsFixed(0)}%', AppColors.green, 'Overall'),
+            _attStat('$_present',  AppColors.blue,  'Present'),
+            _attStat('$_absent',   AppColors.red,   'Absent'),
+            _attStat('$_late',     AppColors.amber, 'Late'),
+          ]),
+          const Divider(height: 28, color: AppColors.border),
+          ProgressBar(label: 'Attendance Rate', value: overallPct.toInt(), gradient: greenGrad()),
+          const SizedBox(height: 8),
+          Row(children: [
+            const Icon(Icons.info_outline_rounded, size: 12, color: AppColors.text4),
+            const SizedBox(width: 5),
+            Text('Minimum required: 75%',
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text3)),
+          ]),
+        ]))),
+      ] else appCard(const Padding(padding: EdgeInsets.all(20), child: Center(child: Text('No student linked to this account.')))),
+      const SizedBox(height: 16),
+    ]);
+  }
+
   Widget _attStat(String val, Color color, String label) => Column(children: [
     Text(val, style: GoogleFonts.dmSerifDisplay(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
     Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.text4)),
   ]);
 }
 
-class _Assignments extends StatelessWidget {
+class _Assignments extends StatefulWidget {
   const _Assignments();
+
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    pageTitle('Assignments', subtitle: "Arjun's tasks"),
-    const ChipRow(chips: ['All', 'Pending', 'Submitted', 'Graded']),
-    appCard(asgnCards([
-      AsgItem(sub: 'MATHEMATICS', title: 'Quadratic Equations Set B', due: 'Tomorrow', barColor: AppColors.blue,  badge: 'Pending',    badgeBg: AppColors.amberLight, badgeColor: AppColors.amber),
-      AsgItem(sub: 'PHYSICS',     title: 'Chapter 4 Problems',        due: 'Mar 30',   barColor: AppColors.teal,  badge: 'Submitted',  badgeBg: AppColors.blueLight,  badgeColor: AppColors.blue),
-      AsgItem(sub: 'HISTORY',     title: 'WWII Analysis Essay',       due: 'Mar 25',   barColor: AppColors.green, badge: 'Graded · A', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
-    ])),
-    Padding(padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-        child: outlineBtn('Message Teacher about Assignment',
-            onTap: () => showMessageTeacher(context))),
-    const SizedBox(height: 16),
-  ]);
+  State<_Assignments> createState() => _AssignmentsState();
+}
+
+class _AssignmentsState extends State<_Assignments> {
+  List<SchoolAssignment> _assignments = [];
+  ParentStudentMapping? _mapping;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (!TokenStore.hasTokens) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final api = ApiService();
+      final maps = await api.getParentStudentMappings();
+      if (maps.results.isNotEmpty) {
+        final m = maps.results.first;
+        // In a real app we might need to fetch assignments by sectionId or just all assignments
+        // Since getAssignments() without params gets all, and backend filters by user, we just call it.
+        final res = await api.getAssignments();
+        if (mounted) setState(() {
+          _mapping = m;
+          _assignments = res.results;
+          _loading = false;
+        });
+      } else {
+        if (mounted) setState(() { _loading = false; });
+      }
+    } catch (e) {
+      if (mounted) setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Color _badgeBg(String s) {
+    if (s == 'Pending') return AppColors.amberLight;
+    if (s.startsWith('Graded')) return AppColors.greenLight;
+    return AppColors.blueLight;
+  }
+  Color _badgeColor(String s) {
+    if (s == 'Pending') return AppColors.amber;
+    if (s.startsWith('Graded')) return AppColors.green;
+    return AppColors.blue;
+  }
+
+  Color _col(String s) {
+    final lower = s.toLowerCase();
+    if (lower.contains('math')) return AppColors.blue;
+    if (lower.contains('phys') || lower.contains('sci')) return AppColors.teal;
+    if (lower.contains('hist')) return AppColors.green;
+    if (lower.contains('eng')) return AppColors.amber;
+    return AppColors.blue;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final childName = _mapping?.studentName ?? "Student";
+
+    if (_loading) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        pageTitle('Assignments', subtitle: "$childName's tasks"),
+        const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: AppColors.blue))),
+      ]);
+    }
+
+    if (!TokenStore.hasTokens || (_assignments.isEmpty && _error == null)) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        pageTitle('Assignments', subtitle: "$childName's tasks"),
+        appCard(Padding(padding: const EdgeInsets.all(20), child: Center(child: Text(
+          'No assignments available.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text3),
+        )))),
+        const SizedBox(height: 16),
+      ]);
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      pageTitle('Assignments', subtitle: "$childName's tasks"),
+      if (_error != null)
+        Container(
+          margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: AppColors.red)),
+          child: Text('Error: $_error\nShowing demo fallback data.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.red)),
+        ),
+      const ChipRow(chips: ['All', 'Pending', 'Submitted', 'Graded']),
+      appCard(asgnCards(_assignments.map((a) {
+        final st = a.status ?? 'Pending';
+        return AsgItem(
+          sub: a.subjectName?.toUpperCase() ?? 'SUBJECT',
+          title: a.title,
+          due: a.dueDate ?? 'TBD',
+          barColor: _col(a.subjectName ?? 'blue'),
+          badge: st,
+          badgeBg: _badgeBg(st),
+          badgeColor: _badgeColor(st),
+        );
+      }).toList())),
+      Padding(padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+          child: outlineBtn('Message Teacher about Assignment',
+              onTap: () => showMessageTeacher(context))),
+      const SizedBox(height: 16),
+    ]);
+  }
 }
 
 class _Payments extends StatefulWidget {

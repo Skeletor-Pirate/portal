@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme.dart';
 import 'screens/login_screen.dart';
+import 'services/config_service.dart';
 
-void main() {
+void main() async {
   // Ensure Flutter framework is ready before calling platform-specific code
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize dynamic server configuration
+  await ConfigService.init();
   
   // Force portrait mode for a consistent ERP dashboard experience
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);

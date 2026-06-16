@@ -2,30 +2,19 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'db_service.dart';
+import 'ai_service.dart';import 'config_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Live server (always on — use this for real accounts) ──────────────────
-const String _kLiveServer = 'http://187.127.139.208:8081';
-
-// ── Local dev server (uncomment to switch) ─────────────────────────────────
-// const String _kLanIp = '192.168.1.79';  // your PC's IP
-
 String get kBaseUrl {
-  // Always use the live server so real accounts work
-  return _kLiveServer;
-
-  // ── Switch to local for development: ──────────────────────────────────────
-  // if (kIsWeb) return 'http://127.0.0.1:8000';
-  // if (Platform.isAndroid) return 'http://$_kLanIp:8000';
-  // return 'http://127.0.0.1:8000';
+  return ConfigService.serverUrl;
 }
 
 String get kAiBaseUrl {
-  // The AI service typically runs on port 8001
-  return 'http://187.127.139.208:8001';
+  return ConfigService.aiUrl;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -513,6 +502,52 @@ class ApiService {
   // OPERATIONS  /api/v1/operations/
   // ─────────────────────────────────────────────────────────────────────────
 
+  Future<PaginatedResult<SchoolAssignment>> getAssignments({
+    int page = 1, String? sectionId,
+  }) async {
+    try {
+      final me = await getMe();
+      final rows = await DbService.getAssignments(me.schoolId ?? '');
+      
+      // Filter by section if requested
+      final filtered = sectionId != null 
+          ? rows.where((r) => r['section'] == sectionId).toList()
+          : rows;
+          
+      final results = filtered.map((r) => SchoolAssignment.fromJson(r)).toList();
+      return PaginatedResult(count: results.length, next: null, previous: null, results: results);
+    } catch (e) {
+      return PaginatedResult(count: 0, next: null, previous: null, results: []);
+    }
+  }
+
+  Future<SchoolAssignment> createAssignment(Map<String, dynamic> body) async {
+    final d = await _postWithFallback('/api/v1/operations/assignments/', body, fallback: '/api/v1/assignments/');
+    return SchoolAssignment.fromJson(d);
+  }
+
+  Future<PaginatedResult<AssignmentSubmission>> getSubmissions({
+    int page = 1, String? studentId, String? assignmentId,
+  }) async {
+    final q = <String, dynamic>{'page': page};
+    if (studentId != null) q['student'] = studentId;
+    if (assignmentId != null) q['assignment'] = assignmentId;
+    try {
+      final d = await _getWithFallback('/api/v1/operations/submissions/', fallback: '/api/v1/submissions/', query: q);
+      return PaginatedResult.fromJson(d, AssignmentSubmission.fromJson);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 404) {
+        return PaginatedResult(count: 0, next: null, previous: null, results: []);
+      }
+      rethrow;
+    }
+  }
+
+  Future<AssignmentSubmission> submitAssignment(Map<String, dynamic> body) async {
+    final d = await _postWithFallback('/api/v1/operations/submissions/', body, fallback: '/api/v1/submissions/');
+    return AssignmentSubmission.fromJson(d);
+  }
+
   Future<PaginatedResult<AttendanceRecord>> getAttendance({
     int page = 1, String? studentId, String? date, String? sectionId,
   }) async {
@@ -661,13 +696,36 @@ class ApiService {
     }
   }
 
-  Future<dynamic> generateLessonPlan(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_lesson_plan', payload);
-  Future<dynamic> generateWorksheet(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_worksheet', payload);
-  Future<dynamic> generateQuiz(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_quiz', payload);
-  Future<dynamic> generateQuestionPaper(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_question_paper', payload);
-  Future<dynamic> generateStudyNotes(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_study_notes', payload);
-  Future<dynamic> generatePresentationOutline(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_presentation_outline', payload);
-  Future<dynamic> generateRubric(Map<String, dynamic> payload) => _callAiApi('/api/v1/generate_rubric', payload);
+  Future<dynamic> generateLessonPlan(Map<String, dynamic> payload) async => await AiService.generateLessonPlan(payload);
+  Future<dynamic> generateWorksheet(Map<String, dynamic> payload) async => await AiService.generateWorksheet(payload);
+  Future<dynamic> generateQuiz(Map<String, dynamic> payload) async => await AiService.generateQuiz(payload);
+  Future<dynamic> generateQuestionPaper(Map<String, dynamic> payload) async => await AiService.generateQuestionPaper(payload);
+  Future<dynamic> generateStudyNotes(Map<String, dynamic> payload) async => await AiService.generateStudyNotes(payload);
+  Future<dynamic> generatePresentationOutline(Map<String, dynamic> payload) async => await AiService.generatePresentationOutline(payload);
+  Future<dynamic> generateRubric(Map<String, dynamic> payload) async => await AiService.generateRubric(payload);
+
+  Future<String> askAI(String prompt) async {
+    try {
+      final res = await post('/api/v1/operations/ai-chat/', {'prompt': prompt});
+      return res['reply'] as String;
+    } catch (e) {
+      return 'Sorry, I am having trouble connecting to the AI server right now. Error: $e';
+    }
+  }
+
+  Future<dynamic> saveAIContent({
+    required String className,
+    required String subject,
+    required String contentType,
+    required dynamic data,
+  }) async {
+    return await _postWithFallback('/api/v1/academics/saved-ai-content/', {
+      'class_name': className,
+      'subject': subject,
+      'content_type': contentType,
+      'data': data,
+    }, fallback: '/api/v1/saved-ai-content/');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1303,5 +1361,72 @@ class UserRoleAssignment {
         roleId:    j['role']?.toString() ?? '',
         userEmail: j['user_email']?.toString(),
         roleName:  j['role_name']?.toString(),
+      );
+}
+
+// ── SchoolAssignment ───────────────────────────────────────────────────────
+
+class SchoolAssignment {
+  final String id;
+  final String title;
+  final String? description;
+  final String? dueDate;
+  final String? subjectId;
+  final String? subjectName;
+  final String? sectionId;
+  final String? sectionName;
+  final double? maxMarks;
+  final String? status;
+
+  SchoolAssignment({
+    required this.id,
+    required this.title,
+    this.description,
+    this.dueDate,
+    this.subjectId,
+    this.subjectName,
+    this.sectionId,
+    this.sectionName,
+    this.maxMarks,
+    this.status,
+  });
+
+  factory SchoolAssignment.fromJson(Map<String, dynamic> j) => SchoolAssignment(
+        id:          j['id']?.toString() ?? '',
+        title:       j['title'] ?? '',
+        description: j['description']?.toString(),
+        dueDate:     j['due_date']?.toString(),
+        subjectId:   j['subject']?.toString(),
+        subjectName: j['subject_name']?.toString() ?? j['subject']?.toString() ?? 'Unknown Subject',
+        sectionId:   j['section']?.toString(),
+        sectionName: j['section_name']?.toString(),
+        maxMarks:    (j['max_marks'] as num?)?.toDouble(),
+        status:      j['status']?.toString() ?? 'Pending',
+      );
+}
+
+// ── AssignmentSubmission ───────────────────────────────────────────────────
+
+class AssignmentSubmission {
+  final String id;
+  final String assignmentId;
+  final String studentId;
+  final String? status;
+  final double? marksObtained;
+
+  AssignmentSubmission({
+    required this.id,
+    required this.assignmentId,
+    required this.studentId,
+    this.status,
+    this.marksObtained,
+  });
+
+  factory AssignmentSubmission.fromJson(Map<String, dynamic> j) => AssignmentSubmission(
+        id:            j['id']?.toString() ?? '',
+        assignmentId:  j['assignment']?.toString() ?? '',
+        studentId:     j['student']?.toString() ?? '',
+        status:        j['status']?.toString(),
+        marksObtained: (j['marks_obtained'] as num?)?.toDouble(),
       );
 }

@@ -1,0 +1,36 @@
+class AppConstants {
+  static const Map<String, List<String>> mathematicsChapters = {
+    '9': [
+      '1 - NUMBER SYSTEMS',
+      "10 - HERON'S FORMULA",
+      '11 - SURFACE AREAS AND VOLUMES',
+      '12 - STATISTICS',
+      '13 - PROOFS IN MATHEMATICS',
+      '14 - INTRODUCTION TO MATHEMATICAL MODELLING',
+      '2 - POLYNOMIALS',
+      '3 - COORDINATE GEOMETRY',
+      '4 - LINEAR EQUATIONS IN TWO VARIABLES',
+      "5 - INTRODUCTION TO EUCLID'S GEOMETRY",
+      '6 - LINES AND ANGLES',
+      '7 - TRIANGLES',
+      '8 - QUADRILATERALS',
+      '9 - CIRCLES'
+    ],
+    '10': [
+      '10 - CIRCLES',
+      '11 - AREAS RELATED TO CIRCLES',
+      '1 - REAL NUMBERS',
+      '12 - SURFACE AREAS AND VOLUMES',
+      '13 - STATISTICS',
+      '14 - PROBABILITY',
+      '2 - POLYNOMIALS',
+      '3 - PAIR OF LINEAR EQUATIONS IN TWO VARIABLES',
+      '4 - QUADRATIC EQUATIONS',
+      '5 - ARITHMETIC PROGRESSIONS',
+      '6 - TRIANGLES',
+      '7 - COORDINATE GEOMETRY',
+      '8 - INTRODUCTION TO TRIGONOMETRY',
+      '9 - SOME APPLICATIONS OF TRIGONOMETRY'
+    ]
+  };
+}

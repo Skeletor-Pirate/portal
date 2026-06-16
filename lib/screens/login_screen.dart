@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 import '../models/role_config.dart';
 import '../services/api_service.dart';
+import '../services/config_service.dart';
 import '../services/dev_auth.dart';
 import '../services/app_store.dart';
 import 'app_screen.dart';
@@ -237,8 +238,74 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(width: 9),
           Text("Academic Architect", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -0.3)),
         ]),
-        Row(children: [_navLink("Features"), const SizedBox(width: 14), _navLink("Modules"), const SizedBox(width: 14), _navLink("About")]),
+        Row(children: [
+          _navLink("Features"), const SizedBox(width: 14), 
+          GestureDetector(
+            onTap: () => _showServerSettings(context),
+            child: const Icon(Icons.settings_rounded, size: 18, color: Colors.white),
+          ),
+        ]),
       ]),
+    );
+  }
+
+  void _showServerSettings(BuildContext context) {
+    final serverCtrl = TextEditingController(text: ConfigService.serverUrl);
+    final aiCtrl = TextEditingController(text: ConfigService.aiUrl);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text("Server Settings", style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.text1)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Backend API URL", style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text2)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: serverCtrl,
+              decoration: InputDecoration(
+                filled: true, fillColor: AppColors.bg,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
+              ),
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
+            ),
+            const SizedBox(height: 16),
+            Text("AI Service URL", style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text2)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: aiCtrl,
+              decoration: InputDecoration(
+                filled: true, fillColor: AppColors.bg,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
+              ),
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text("Cancel", style: GoogleFonts.plusJakartaSans(color: AppColors.text3)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.navy),
+            onPressed: () async {
+              await ConfigService.setServerUrl(serverCtrl.text);
+              await ConfigService.setAiUrl(aiCtrl.text);
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Server settings saved.")));
+              }
+            },
+            child: Text("Save", style: GoogleFonts.plusJakartaSans(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 
