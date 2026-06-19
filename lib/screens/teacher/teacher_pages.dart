@@ -1649,6 +1649,10 @@ class _AIToolsState extends State<_AITools> {
       if (_activeTool == 'Quiz') return _buildQuizView(data);
       if (_activeTool == 'Lesson Plan') return _buildLessonPlanView(data);
       if (_activeTool == 'Worksheet') return _buildWorksheetView(data);
+      if (_activeTool == 'Study Notes') return _buildStudyNotesView(data);
+      if (_activeTool == 'Rubric') return _buildRubricView(data);
+      if (_activeTool == 'Question Paper') return _buildQuestionPaperView(data);
+      if (_activeTool == 'Presentation Outline') return _buildPresentationOutlineView(data);
       
       // Generic Map view
       List<Widget> children = [];
@@ -1740,6 +1744,17 @@ class _AIToolsState extends State<_AITools> {
                   ]),
                 );
               }).toList())
+            ] else ...[
+              const SizedBox(height: 12),
+              TextField(
+                maxLines: (q['type'] != null && (q['type'].toString().toLowerCase().contains('long') || q['type'].toString().toLowerCase().contains('proof') || q['type'].toString().toLowerCase().contains('diagram'))) ? 4 : 1,
+                decoration: InputDecoration(
+                  hintText: 'Type your answer here...',
+                  filled: true, fillColor: AppColors.surface,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+                ),
+              ),
             ]
           ]),
         ));
@@ -1757,20 +1772,20 @@ class _AIToolsState extends State<_AITools> {
       children.add(const SizedBox(height: 16));
     }
 
-    if (data['mcqs'] != null && (data['mcqs'] as List).isNotEmpty) {
-      children.add(Text('Multiple Choice Questions', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.text1)));
+    if (data['questions'] != null && (data['questions'] as List).isNotEmpty) {
+      children.add(Text('Questions', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.text1)));
       children.add(const SizedBox(height: 12));
       int i = 1;
-      for (var mcq in data['mcqs']) {
+      for (var q in data['questions']) {
         children.add(Container(
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('$i. ${mcq['question']}', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.text1)),
+            Text('$i. ${q['question']}', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.text1)),
             const SizedBox(height: 12),
-            if (mcq['options'] != null) ...((mcq['options'] as List).map((opt) {
-              bool isCorrect = mcq['correct_answer'] == opt;
+            if (q['options'] != null) ...((q['options'] as List).map((opt) {
+              bool isCorrect = q['correct_answer'] == opt;
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1784,34 +1799,19 @@ class _AIToolsState extends State<_AITools> {
                   if (isCorrect) const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
                 ]),
               );
-            }).toList())
-          ]),
-        ));
-        i++;
-      }
-    }
-
-    if (data['short_answers'] != null && (data['short_answers'] as List).isNotEmpty) {
-      children.add(Text('Short Answer Questions', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.text1)));
-      children.add(const SizedBox(height: 12));
-      int i = 1;
-      for (var sa in data['short_answers']) {
-        children.add(Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('$i. ${sa['question']}', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.text1)),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFF6B38D4).withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Answer Key', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))),
-                const SizedBox(height: 4),
-                Text(sa['answer_key'] ?? '', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2)),
-              ]),
-            )
+            }).toList()),
+            if (q['explanation'] != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFF6B38D4).withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Explanation', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))),
+                  const SizedBox(height: 4),
+                  Text(q['explanation'].toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2)),
+                ]),
+              )
+            ]
           ]),
         ));
         i++;
@@ -1884,6 +1884,262 @@ class _AIToolsState extends State<_AITools> {
       children.add(const SizedBox(height: 16));
     }
 
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+  }
+
+  Widget _buildStudyNotesView(Map<String, dynamic> data) {
+    List<Widget> children = [];
+    if (data['title'] != null) {
+      children.add(Text(data['title'], style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))));
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['summary'] != null) {
+      children.add(_buildSectionHeader('info', 'Summary'));
+      children.add(Text(data['summary'].toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2)));
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['key_concepts'] != null && (data['key_concepts'] as List).isNotEmpty) {
+      children.add(_buildSectionHeader('bookmark', 'Key Concepts'));
+      for (var c in data['key_concepts']) {
+        children.add(Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.circle, size: 6, color: Color(0xFF6B38D4)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(c.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2))),
+        ])));
+      }
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['detailed_notes'] != null && (data['detailed_notes'] as List).isNotEmpty) {
+      children.add(_buildSectionHeader('waving_hand', 'Detailed Notes'));
+      for (var n in data['detailed_notes']) {
+        children.add(Container(
+          width: double.infinity, margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border), boxShadow: shadowSm),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (n['heading'] != null) ...[
+              Text(n['heading'].toString(), style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text1)),
+              const SizedBox(height: 8),
+            ],
+            if (n['content'] != null)
+              Text(n['content'].toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2, height: 1.5)),
+          ]),
+        ));
+      }
+    }
+
+    if (data['important_formulas'] != null && (data['important_formulas'] as List).isNotEmpty) {
+      children.add(_buildSectionHeader('task_alt', 'Important Formulas'));
+      for (var f in data['important_formulas']) {
+        children.add(Container(
+          margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFF6B38D4).withOpacity(0.05), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF6B38D4).withOpacity(0.2))),
+          child: Row(children: [
+            const Icon(Icons.functions_rounded, color: Color(0xFF6B38D4), size: 18),
+            const SizedBox(width: 12),
+            Expanded(child: Text(f.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text1))),
+          ]),
+        ));
+      }
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['tips'] != null) {
+      children.add(_buildSectionHeader('info', 'Tips'));
+      children.add(Container(
+        width: double.infinity, padding: const EdgeInsets.all(12), margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.withOpacity(0.3))),
+        child: Text(data['tips'].toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.orange[800])),
+      ));
+    }
+
+    if (data['practice_problems'] != null && (data['practice_problems'] as List).isNotEmpty) {
+      children.add(_buildSectionHeader('hourglass_empty', 'Practice Problems'));
+      int i = 1;
+      for (var p in data['practice_problems']) {
+        children.add(Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$i.', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.text1)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(p.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2))),
+        ])));
+        i++;
+      }
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+  }
+
+  Widget _buildRubricView(Map<String, dynamic> data) {
+    List<Widget> children = [];
+    if (data['title'] != null) {
+      children.add(Text(data['title'], style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))));
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['criteria'] != null && (data['criteria'] as List).isNotEmpty) {
+      for (var crit in data['criteria']) {
+        children.add(Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border), boxShadow: shadowSm),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(12)), border: Border(bottom: BorderSide(color: AppColors.border))),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Expanded(child: Text(crit['criterion']?.toString() ?? 'Criterion', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.text1))),
+                if (crit['weight'] != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: const Color(0xFF6B38D4), borderRadius: BorderRadius.circular(4)),
+                    child: Text('${crit['weight']}%', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+              ]),
+            ),
+            _buildRubricLevel('Excellent', crit['excellent'], Colors.green),
+            _buildRubricLevel('Good', crit['good'], Colors.blue),
+            _buildRubricLevel('Satisfactory', crit['satisfactory'], Colors.orange),
+            _buildRubricLevel('Needs Impr.', crit['needs_improvement'], Colors.red),
+          ]),
+        ));
+      }
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+  }
+
+  Widget _buildRubricLevel(String level, dynamic desc, Color color) {
+    if (desc == null || desc.toString().isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(width: 80, child: Text(level, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: color))),
+        Expanded(child: Text(desc.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text2))),
+      ]),
+    );
+  }
+
+  Widget _buildQuestionPaperView(Map<String, dynamic> data) {
+    List<Widget> children = [];
+    if (data['title'] != null) {
+      children.add(Text(data['title'], style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))));
+      children.add(const SizedBox(height: 8));
+    }
+    
+    children.add(Row(children: [
+      if (data['total_marks'] != null)
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(4)), child: Text('Total Marks: ${data['total_marks']}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600))),
+      const SizedBox(width: 8),
+      if (data['duration'] != null)
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(4)), child: Text('Duration: ${data['duration']}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600))),
+    ]));
+    children.add(const SizedBox(height: 16));
+
+    if (data['instructions'] != null && (data['instructions'] as List).isNotEmpty) {
+      children.add(_buildSectionHeader('info', 'Instructions'));
+      for (var inst in data['instructions']) {
+        children.add(Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.text3)),
+          Expanded(child: Text(inst.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text2))),
+        ])));
+      }
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['sections'] != null && (data['sections'] as List).isNotEmpty) {
+      for (var sec in data['sections']) {
+        children.add(Container(
+          width: double.infinity, margin: const EdgeInsets.only(top: 16, bottom: 12), padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFF6B38D4), borderRadius: BorderRadius.circular(8)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Expanded(child: Text(sec['name']?.toString() ?? 'Section', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white))),
+            if (sec['marks'] != null)
+              Text('${sec['marks']} Marks', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
+          ]),
+        ));
+
+        if (sec['questions'] != null && (sec['questions'] as List).isNotEmpty) {
+          int i = 1;
+          for (var q in sec['questions']) {
+            children.add(Container(
+              margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Q$i.', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.text1)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(q['question']?.toString() ?? q.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text1))),
+                  if (q is Map && q['marks'] != null)
+                    Padding(padding: const EdgeInsets.only(left: 8), child: Text('[${q['marks']}]', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text3))),
+                ]),
+                if (q is Map && q['options'] != null) ...[
+                  const SizedBox(height: 8),
+                  ...((q['options'] as List).map((opt) => Padding(
+                    padding: const EdgeInsets.only(left: 24, bottom: 4),
+                    child: Text('• ${opt.toString()}', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text2)),
+                  )).toList())
+                ]
+              ]),
+            ));
+            i++;
+          }
+        }
+      }
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+  }
+
+  Widget _buildPresentationOutlineView(Map<String, dynamic> data) {
+    List<Widget> children = [];
+    if (data['title'] != null) {
+      children.add(Text(data['title'], style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))));
+      children.add(const SizedBox(height: 8));
+    }
+    if (data['total_slides'] != null) {
+      children.add(Text('Total Slides: ${data['total_slides']}', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text3)));
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['slides'] != null && (data['slides'] as List).isNotEmpty) {
+      for (var slide in data['slides']) {
+        children.add(Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border), boxShadow: shadowSm),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(12)), border: Border(bottom: BorderSide(color: AppColors.border))),
+              child: Row(children: [
+                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6B38D4), borderRadius: BorderRadius.circular(4)), child: Text('Slide ${slide['slide_number'] ?? ''}', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white))),
+                const SizedBox(width: 12),
+                Expanded(child: Text(slide['title']?.toString() ?? '', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.text1))),
+              ]),
+            ),
+            if (slide['content'] != null && (slide['content'] as List).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: (slide['content'] as List).map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6B38D4))),
+                    Expanded(child: Text(c.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1))),
+                  ]),
+                )).toList()),
+              ),
+            if (slide['speaker_notes'] != null)
+              Container(
+                width: double.infinity, padding: const EdgeInsets.all(12), decoration: const BoxDecoration(color: Color(0xFFF1F5F9), borderRadius: BorderRadius.vertical(bottom: Radius.circular(12))),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Speaker Notes', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.text3)),
+                  const SizedBox(height: 4),
+                  Text(slide['speaker_notes'].toString(), style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text2, fontStyle: FontStyle.italic)),
+                ]),
+              ),
+          ]),
+        ));
+      }
+    }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
   }
 
