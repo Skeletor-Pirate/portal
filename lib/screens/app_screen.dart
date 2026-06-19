@@ -386,21 +386,36 @@ class _AppScreenState extends State<AppScreen> {
                   ]),
             ),
             Divider(height: 1, color: AppColors.border),
-            ..._notifItems(),
+            ValueListenableBuilder<List<Map<String, String>>>(
+              valueListenable: AppStore.instance.recentActivity,
+              builder: (context, acts, _) {
+                if (acts.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Center(
+                      child: Text('No new notifications', 
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3)),
+                    ),
+                  );
+                }
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: acts.take(5).toList().asMap().entries.map((e) {
+                    final colors = [AppColors.blue, AppColors.teal, AppColors.green, AppColors.amber, AppColors.navy];
+                    return _ni(
+                      e.key == 0, 
+                      colors[e.key % colors.length], 
+                      e.value['title']!, 
+                      e.value['sub']!, 
+                      e.value['time']!
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ],
         ),
       );
-
-  List<Widget> _notifItems() => [
-        _ni(true, AppColors.blue, 'Assignment Submitted',
-            '3 students submitted Math #4', '2m ago'),
-        _ni(true, const Color(0xFF16A34A), 'Payment Received',
-            'INV-089 paid — ₹24,500', '14m ago'),
-        _ni(false, const Color(0xFFD97706), 'Attendance Alert',
-            'Grade 9B below 75% threshold', '1h ago'),
-        _ni(false, AppColors.navy, 'Exam Results',
-            'Mid-term results for Grade 10', '3h ago'),
-      ];
 
   Widget _ni(bool unread, Color dotColor, String title, String sub,
           String time) =>

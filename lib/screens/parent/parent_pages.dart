@@ -7,6 +7,8 @@ import '../../services/app_store.dart';
 import '../../widgets/builders.dart';
 import '../../widgets/interactive.dart';
 import '../page_router.dart';
+import 'notifications_hub.dart';
+import 'parent_settings.dart';
 
 class ParentPages extends StatelessWidget {
   final String page;
@@ -139,6 +141,10 @@ class _DashboardState extends State<_Dashboard> {
             onTap: () => showToast(context, 'Opening AI insights…')),
         ActionItem(icon: Icons.chat_rounded,          label: 'Message',       bg: AppColors.blueLight,  iconColor: AppColors.blue,
             onTap: () => showMessageTeacher(context)),
+        ActionItem(icon: Icons.notifications_rounded, label: 'Alerts',        bg: AppColors.redLight,   iconColor: AppColors.red,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsHub()))),
+        ActionItem(icon: Icons.settings_rounded,      label: 'Settings',      bg: AppColors.navy.withOpacity(0.1), iconColor: AppColors.navy,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ParentSettings()))),
       ]),
       const SizedBox(height: 16),
     ]);
@@ -665,40 +671,115 @@ class _PayFeesSheetState extends State<_PayFeesSheet> {
 
 class _Insights extends StatelessWidget {
   const _Insights();
+
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    pageTitle('AI Insights', subtitle: 'Personalised recommendations for Arjun'),
-    appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: [
-      _insight(AppColors.blue,  Icons.trending_up_rounded,    'Performance Trend',  "Arjun's Physics scores improved 8% over the last 3 tests."),
-      const SizedBox(height: 14),
-      _insight(AppColors.amber, Icons.warning_amber_rounded,  'Attendance Warning', '3 absences this month. Ensure regular attendance.'),
-      const SizedBox(height: 14),
-      _insight(AppColors.green, Icons.trending_up_rounded,    'Predicted Grade',    'Based on current performance, final grade predicted at B+ to A−.'),
-    ]))),
-    Padding(padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-        child: outlineBtn('Message Teacher', onTap: () => showMessageTeacher(context))),
-    const SizedBox(height: 16),
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      pageTitle('AI Academic Insights', subtitle: 'Deep-dive into cognitive progression powered by AI.'),
+      
+      // 1. Learning Efficiency
+      secLabel('Learning Efficiency'),
+      appCard(Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Icon(Icons.speed_rounded, size: 24, color: AppColors.blue),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.greenLight, borderRadius: BorderRadius.circular(rSm)),
+            child: Text('+12% vs last month', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.green)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Text('Learning Efficiency', style: GoogleFonts.dmSerifDisplay(fontSize: 18, color: AppColors.text1)),
+        const SizedBox(height: 4),
+        Text('Absorbing concepts faster during morning sessions. STEM retention peaked at 88%.', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3, height: 1.5)),
+        const SizedBox(height: 16),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(rSm),
+          child: const LinearProgressIndicator(value: 0.88, minHeight: 8, backgroundColor: AppColors.border, color: AppColors.blue),
+        ),
+      ]))),
+      const SizedBox(height: 16),
+
+      // 2. Concept Mastery
+      secLabel('Concept Mastery'),
+      appCard(Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Subject-wise depth of understanding.', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3)),
+        const SizedBox(height: 16),
+        _masteryBar('Mathematics: Algebra & Geometry', 0.94, AppColors.blue),
+        const SizedBox(height: 12),
+        _masteryBar('Science: Molecular Biology', 0.72, AppColors.teal),
+        const SizedBox(height: 12),
+        _masteryBar('Literature: Comparative Analysis', 0.81, AppColors.amber),
+      ]))),
+      const SizedBox(height: 16),
+
+      // 3. Behavioral Insights
+      secLabel('Behavioral Insights'),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.navy, AppColors.blue]), borderRadius: BorderRadius.circular(rLg), boxShadow: shadowMd),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(rFull)),
+            child: Text('SENTIMENT ANALYSIS', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.0)),
+          ),
+          const SizedBox(height: 12),
+          Text('High Collaborative Initiative', style: GoogleFonts.dmSerifDisplay(fontSize: 20, color: Colors.white)),
+          const SizedBox(height: 6),
+          Text('AI notes a high level of collaborative initiative. Frequently assists peers in group projects, showing strong leadership potential.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white.withOpacity(0.9), height: 1.5)),
+          const SizedBox(height: 16),
+          Row(children: [
+            const Icon(Icons.psychology_rounded, size: 24, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('Top Collaborator this week', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+          ]),
+        ]),
+      ),
+      const SizedBox(height: 16),
+
+      // 4. Study Roadmap
+      secLabel('Personalized Study Roadmap'),
+      appCard(Column(children: [
+        _roadmapItem(Icons.auto_stories_rounded, 'Science (Advanced Chem)', 'Bridge the gap between current mastery and semester goal.', 'NEXT WEEK', AppColors.teal),
+        const Divider(height: 1, color: AppColors.border),
+        _roadmapItem(Icons.edit_note_rounded, 'Creative Writing Workshop', 'Optional AI-recommended module to boost literacy scores.', 'ENROLLING', AppColors.amber),
+      ])),
+
+      const SizedBox(height: 24),
+    ]);
+  }
+
+  Widget _masteryBar(String label, double val, Color color) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.text2)),
+      Text('${(val * 100).toInt()}%', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+    ]),
+    const SizedBox(height: 6),
+    ClipRRect(
+      borderRadius: BorderRadius.circular(rFull),
+      child: LinearProgressIndicator(value: val, minHeight: 6, backgroundColor: AppColors.border, color: color),
+    ),
   ]);
 
-  Widget _insight(Color color, IconData icon, String title, String body) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
+  Widget _roadmapItem(IconData icon, String title, String desc, String badge, Color color) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(
-        width: 3, 
-        height: 56, 
-        // FIXED: Removed standalone color property, moved inside decoration
-        decoration: BoxDecoration(
-          color: color, 
-          borderRadius: BorderRadius.circular(rFull)
-        )
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(rMd)),
+        child: Icon(icon, size: 20, color: color),
       ),
-      const SizedBox(width: 12),
+      const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [Icon(icon, size: 13, color: color), const SizedBox(width: 5),
-          Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text1))]),
-        const SizedBox(height: 3),
-        Text(body, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3, height: 1.5)),
+        Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.text1)),
+        const SizedBox(height: 4),
+        Text(desc, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text3, height: 1.5)),
       ])),
-    ],
+      const SizedBox(width: 10),
+      Text(badge, style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
+    ]),
   );
 }

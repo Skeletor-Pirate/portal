@@ -752,6 +752,8 @@ class _Mapping extends StatefulWidget {
 
 class _MappingState extends State<_Mapping> {
   List<ParentStudentMapping> _mappings = [];
+  Map<String, String> _parentNames = {};
+  Map<String, String> _studentNames = {};
   bool _loading = true;
   String? _error;
 
@@ -762,15 +764,35 @@ class _MappingState extends State<_Mapping> {
     setState(() { _loading = true; _error = null; });
     try {
       if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
-      final res = await ApiService().getParentStudentMappings();
-      if (mounted) setState(() { _mappings = res.results; _loading = false; });
+      final results = await Future.wait([
+        ApiService().getParentStudentMappings(),
+        ApiService().getParents(),
+        ApiService().getStudents(),
+      ]);
+      if (!mounted) return;
+      
+      final mappings = (results[0] as PaginatedResult<ParentStudentMapping>).results;
+      final parents = (results[1] as PaginatedResult<ParentProfile>).results;
+      final students = (results[2] as PaginatedResult<StudentProfile>).results;
+      
+      final pMap = <String, String>{ for (var p in parents) p.id: p.fullName.isNotEmpty ? p.fullName : ((p.email != null && p.email!.isNotEmpty) ? p.email! : 'Unknown Parent') };
+      final sMap = <String, String>{ for (var s in students) s.id: s.fullName };
+
+      setState(() { 
+        _mappings = mappings; 
+        _parentNames = pMap;
+        _studentNames = sMap;
+        _loading = false; 
+      });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.toString(); });
     }
   }
 
   Future<void> _delete(ParentStudentMapping m) async {
-    final ok = await confirmDialog(context, title: 'Remove Mapping', body: 'Remove the mapping ${m.parentEmail ?? m.parentId} → ${m.studentName ?? m.studentId}?', confirm: 'Remove');
+    final pName = _parentNames[m.parentId] ?? m.parentEmail ?? m.parentId;
+    final sName = _studentNames[m.studentId] ?? m.studentName ?? m.studentId;
+    final ok = await confirmDialog(context, title: 'Remove Mapping', body: 'Remove the mapping $pName → $sName?', confirm: 'Remove');
     if (!ok || !mounted) return;
     try {
       await ApiService().deleteMapping(m.id);
@@ -790,15 +812,21 @@ class _MappingState extends State<_Mapping> {
     appCard(Column(children: [
       if (_mappings.isEmpty && !_loading)
         Padding(padding: const EdgeInsets.all(20), child: Center(child: Text('No mappings found.', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text3)))),
-      ..._mappings.map((m) => GestureDetector(
-        onLongPress: () => _delete(m),
-        child: listItem(
-          avIcon: Icons.share_rounded, avBg: AppColors.amberLight, avColor: AppColors.amber,
-          name: m.parentEmail ?? m.parentId,
-          sub: '→ ${m.studentName ?? m.studentId} · ${m.relationship}${m.isPrimaryContact ? " · Primary" : ""}',
-          badgeText: 'Linked', badgeBg: AppColors.blueLight, badgeColor: AppColors.blue,
-        ),
-      )),
+      ..._mappings.map((m) {
+        final pName = _parentNames[m.parentId] ?? m.parentEmail ?? m.parentId;
+        final sName = _studentNames[m.studentId] ?? m.studentName ?? m.studentId;
+        final initials = pName.isNotEmpty ? pName[0].toUpperCase() : 'P';
+        return GestureDetector(
+          onLongPress: () => _delete(m),
+          child: listItem(
+            avIcon: Icons.family_restroom_rounded, avBg: AppColors.amberLight, avColor: AppColors.amber,
+            avInitials: initials,
+            name: pName,
+            sub: '→ $sName · ${m.relationship}${m.isPrimaryContact ? " · Primary" : ""}',
+            badgeText: 'Linked', badgeBg: AppColors.blueLight, badgeColor: AppColors.blue,
+          ),
+        );
+      }),
     ])),
     if (_mappings.isNotEmpty)
       Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 4), child: Text('Long-press to remove · ${_mappings.length} mappings', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.text4))),
