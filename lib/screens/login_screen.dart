@@ -570,8 +570,8 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AppScreen(role: detectedRole)));
     } on ApiException catch (e) {
       setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = "Could not reach the server. Check your connection.");
+    } catch (e) {
+      setState(() => _error = "Could not reach the server at ${ConfigService.serverUrl}. Error: $e");
     } finally {
       if (mounted) setState(() => _loading = false);
     }

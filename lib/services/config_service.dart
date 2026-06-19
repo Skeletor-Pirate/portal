@@ -4,8 +4,8 @@ class ConfigService {
   static late SharedPreferences _prefs;
 
   // Default fallback URLs
-  static const String _defaultServerUrl = 'http://187.127.139.208:8081';
-  static const String _defaultAiUrl = 'http://187.127.139.208:8001';
+  static const String _defaultServerUrl = 'http://10.241.30.10:8000';
+  static const String _defaultAiUrl = 'http://10.241.30.10:8001';
 
   static const String _keyServerUrl = 'custom_server_url';
   static const String _keyAiUrl = 'custom_ai_url';
