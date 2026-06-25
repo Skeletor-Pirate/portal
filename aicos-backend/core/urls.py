@@ -24,6 +24,7 @@ urlpatterns = [
     # TOP-LEVEL AI ENDPOINTS (Matching ERP Structure)
     path('api/v1/generate_lesson_plan/', tutor_ai.generate_lesson_plan),
     path('api/v1/generate_worksheet/', tutor_ai.generate_worksheet),
+    path('api/v1/evaluate_worksheet/', tutor_ai.evaluate_worksheet),
     path('api/v1/generate_quiz/', tutor_ai.generate_quiz),
     path('api/v1/generate_question_paper/', tutor_ai.generate_question_paper),
     path('api/v1/generate_study_notes/', tutor_ai.generate_study_notes),

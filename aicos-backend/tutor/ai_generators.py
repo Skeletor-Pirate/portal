@@ -106,3 +106,20 @@ def generate_rubric(request):
     system_prompt = "You are an expert educator. Generate an assessment rubric in JSON format with keys: title, criteria (list of objects with 'criterion', 'excellent', 'good', 'satisfactory', 'needs_improvement', 'weight'). Include 5-6 criteria."
     user_prompt = f"Subject: {req.get('subject')}\nGrade: {req.get('grade')}\nChapter: {req.get('chapter')}\nTopic: {req.get('topic')}"
     return _call_deepseek(system_prompt, user_prompt)
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def evaluate_worksheet(request):
+    req = request.data
+    system_prompt = (
+        "You are an expert teacher grading a student's worksheet. "
+        "You will be given the questions and the student's answers. "
+        "Evaluate the answers and return a JSON object with the following keys: "
+        "'total_marks' (total marks achievable), "
+        "'score' (total marks obtained by the student), "
+        "'evaluations' (a list of objects corresponding to each question, containing "
+        "'question', 'student_answer', 'is_correct' (boolean), 'marks_awarded', 'max_marks', and 'feedback' (brief explanation of why it is correct or incorrect))."
+    )
+    user_prompt = json.dumps(req.get('worksheet_data', {}))
+    return _call_deepseek(system_prompt, user_prompt)
