@@ -32,6 +32,7 @@ class AiService {
 
   static Future<dynamic> generateLessonPlan(Map<String, dynamic> p) => _callAiEndpoint('/api/v1/generate_lesson_plan/', p);
   static Future<dynamic> generateWorksheet(Map<String, dynamic> p) => _callAiEndpoint('/api/v1/generate_worksheet/', p);
+  static Future<dynamic> evaluateWorksheet(Map<String, dynamic> p) => _callAiEndpoint('/api/v1/evaluate_worksheet/', p);
   static Future<dynamic> generateQuiz(Map<String, dynamic> p) => _callAiEndpoint('/api/v1/generate_quiz/', p);
   static Future<dynamic> generateQuestionPaper(Map<String, dynamic> p) => _callAiEndpoint('/api/v1/generate_question_paper/', p);
   static Future<dynamic> generateStudyNotes(Map<String, dynamic> p) => _callAiEndpoint('/api/v1/generate_study_notes/', p);

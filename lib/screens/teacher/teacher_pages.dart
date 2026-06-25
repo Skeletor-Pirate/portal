@@ -1646,9 +1646,9 @@ class _AIToolsState extends State<_AITools> {
       return _buildMarkdown(data);
     }
     if (data is Map<String, dynamic>) {
-      if (_activeTool == 'Quiz') return _buildQuizView(data);
+      if (_activeTool == 'Quiz') return _QuizWidget(data: data);
       if (_activeTool == 'Lesson Plan') return _buildLessonPlanView(data);
-      if (_activeTool == 'Worksheet') return _buildWorksheetView(data);
+      if (_activeTool == 'Worksheet') return _WorksheetWidget(data: data);
       if (_activeTool == 'Study Notes') return _buildStudyNotesView(data);
       if (_activeTool == 'Rubric') return _buildRubricView(data);
       if (_activeTool == 'Question Paper') return _buildQuestionPaperView(data);
@@ -1959,11 +1959,23 @@ class _AIToolsState extends State<_AITools> {
       children.add(_buildSectionHeader('hourglass_empty', 'Practice Problems'));
       int i = 1;
       for (var p in data['practice_problems']) {
-        children.add(Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('$i.', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.text1)),
-          const SizedBox(width: 8),
-          Expanded(child: Text(p.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2))),
-        ])));
+        if (p is Map) {
+          children.add(Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('$i.', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.text1)),
+            const SizedBox(width: 8),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(p['problem']?.toString() ?? '', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text1)),
+              const SizedBox(height: 4),
+              Text('Solution: ${p['solution']?.toString() ?? ''}', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text2)),
+            ])),
+          ])));
+        } else {
+          children.add(Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('$i.', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.text1)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(p.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2))),
+          ])));
+        }
         i++;
       }
     }
@@ -2069,7 +2081,7 @@ class _AIToolsState extends State<_AITools> {
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Q$i.', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.text1)),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(q['question']?.toString() ?? q.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text1))),
+                  Expanded(child: Text(q is Map ? (q['question']?.toString() ?? q['text']?.toString() ?? '') : q.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text1))),
                   if (q is Map && q['marks'] != null)
                     Padding(padding: const EdgeInsets.only(left: 8), child: Text('[${q['marks']}]', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text3))),
                 ]),
@@ -2193,3 +2205,311 @@ class _AIToolsState extends State<_AITools> {
     );
   }
 }
+
+class _WorksheetWidget extends StatefulWidget {
+  final Map<String, dynamic> data;
+  const _WorksheetWidget({Key? key, required this.data}) : super(key: key);
+  @override
+  State<_WorksheetWidget> createState() => _WorksheetWidgetState();
+}
+
+class _WorksheetWidgetState extends State<_WorksheetWidget> {
+  final Map<int, String> _answers = {};
+  bool _evaluating = false;
+  Map<String, dynamic>? _evaluationResult;
+
+  Widget _buildSectionHeader(String iconName, String title) {
+    IconData icon = Icons.info;
+    if (iconName == 'task_alt') icon = Icons.task_alt_rounded;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 8),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF6B38D4).withOpacity(0.1), borderRadius: BorderRadius.circular(4)), child: Icon(icon, size: 14, color: const Color(0xFF6B38D4))),
+        const SizedBox(width: 8),
+        Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))),
+      ]),
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() { _evaluating = true; });
+    try {
+      final questions = widget.data['questions'] as List;
+      List<Map<String, dynamic>> payloadAnswers = [];
+      for (int i = 0; i < questions.length; i++) {
+        payloadAnswers.add({
+          'question': questions[i]['question'],
+          'student_answer': _answers[i] ?? '',
+          'type': questions[i]['type'],
+          'marks': questions[i]['marks'],
+        });
+      }
+      final payload = {
+        'worksheet_data': {
+          'title': widget.data['title'],
+          'answers': payloadAnswers
+        }
+      };
+      final res = await ApiService().evaluateWorksheet(payload);
+      setState(() {
+        _evaluationResult = res;
+        _evaluating = false;
+      });
+    } catch (e) {
+      setState(() { _evaluating = false; });
+      if (mounted) showToast(context, 'Evaluation failed: $e', color: AppColors.red);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    List<Widget> children = [];
+    final data = widget.data;
+    if (data['title'] != null) {
+      children.add(Text(data['title'], style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))));
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['instructions'] != null) {
+      children.add(_buildSectionHeader('info', 'Instructions'));
+      children.add(Container(
+        width: double.infinity, padding: const EdgeInsets.all(12), margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
+        child: Text(data['instructions'], style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2)),
+      ));
+    }
+
+    if (_evaluationResult != null) {
+      children.add(Container(
+        padding: const EdgeInsets.all(16), margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.green)),
+        child: Row(children: [
+          const Icon(Icons.stars_rounded, color: Colors.green, size: 32),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Evaluation Complete', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green[800])),
+            Text('Score: ${_evaluationResult!['score']} / ${_evaluationResult!['total_marks']}', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.green[900])),
+          ]))
+        ]),
+      ));
+    }
+
+    if (data['questions'] != null && (data['questions'] as List).isNotEmpty) {
+      children.add(_buildSectionHeader('task_alt', 'Questions'));
+      final questions = data['questions'] as List;
+      for (int i = 0; i < questions.length; i++) {
+        var q = questions[i];
+        var eval;
+        if (_evaluationResult != null && _evaluationResult!['evaluations'] != null) {
+          if (i < (_evaluationResult!['evaluations'] as List).length) {
+            eval = _evaluationResult!['evaluations'][i];
+          }
+        }
+
+        children.add(Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border), boxShadow: shadowSm),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFF6B38D4).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                child: Text('Q${i+1}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(q['question'] ?? '', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.text1))),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              if (q['type'] != null)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(4), border: Border.all(color: AppColors.border)),
+                  child: Text(q['type'].toString().toUpperCase(), style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.text3)),
+                ),
+              if (q['marks'] != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.orange.withOpacity(0.5))),
+                  child: Text('${q['marks']} Marks', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange[800])),
+                ),
+            ]),
+            const SizedBox(height: 12),
+            if (q['options'] != null && (q['options'] as List).isNotEmpty) ...[
+              ...((q['options'] as List).map((opt) {
+                bool isSelected = _answers[i] == opt.toString();
+                return GestureDetector(
+                  onTap: _evaluationResult != null ? null : () => setState(() => _answers[i] = opt.toString()),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      Icon(isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 16, color: isSelected ? const Color(0xFF6B38D4) : AppColors.text3),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(opt.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2))),
+                    ]),
+                  ),
+                );
+              }).toList())
+            ] else ...[
+              TextField(
+                enabled: _evaluationResult == null,
+                onChanged: (val) => _answers[i] = val,
+                maxLines: (q['type'] != null && (q['type'].toString().toLowerCase().contains('long') || q['type'].toString().toLowerCase().contains('proof') || q['type'].toString().toLowerCase().contains('diagram'))) ? 4 : 1,
+                decoration: InputDecoration(
+                  hintText: 'Type your answer here...',
+                  filled: true, fillColor: AppColors.surface,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+                ),
+              ),
+            ],
+            if (eval != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (eval['is_correct'] == true) ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: (eval['is_correct'] == true) ? Colors.green : Colors.red)
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Icon((eval['is_correct'] == true) ? Icons.check_circle : Icons.cancel, color: (eval['is_correct'] == true) ? Colors.green : Colors.red, size: 16),
+                    const SizedBox(width: 8),
+                    Text('${eval['marks_awarded']} / ${eval['max_marks']} Marks', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: (eval['is_correct'] == true) ? Colors.green[800] : Colors.red[800])),
+                  ]),
+                  if (eval['feedback'] != null) ...[
+                    const SizedBox(height: 8),
+                    Text(eval['feedback'].toString(), style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text1)),
+                  ]
+                ]),
+              )
+            ]
+          ]),
+        ));
+      }
+
+      if (_evaluationResult == null) {
+        children.add(const SizedBox(height: 16));
+        children.add(GestureDetector(
+          onTap: _evaluating ? null : _submit,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(color: _evaluating ? const Color(0xFF6B38D4).withOpacity(0.5) : const Color(0xFF6B38D4), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowSm),
+            child: Center(child: _evaluating
+              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                  const SizedBox(width: 10),
+                  Text('Evaluating...', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                ])
+              : Text('Submit Answers', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white))),
+          ),
+        ));
+      }
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+  }
+}
+
+class _QuizWidget extends StatefulWidget {
+  final Map<String, dynamic> data;
+  const _QuizWidget({Key? key, required this.data}) : super(key: key);
+  @override
+  State<_QuizWidget> createState() => _QuizWidgetState();
+}
+
+class _QuizWidgetState extends State<_QuizWidget> {
+  final Map<int, String> _selectedOptions = {};
+
+  @override
+  Widget build(BuildContext context) {
+    List<Widget> children = [];
+    final data = widget.data;
+    if (data['title'] != null) {
+      children.add(Text(data['title'], style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))));
+      children.add(const SizedBox(height: 16));
+    }
+
+    if (data['questions'] != null && (data['questions'] as List).isNotEmpty) {
+      children.add(Text('Questions', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.text1)));
+      children.add(const SizedBox(height: 12));
+      final questions = data['questions'] as List;
+      for (int i = 0; i < questions.length; i++) {
+        var q = questions[i];
+        bool answered = _selectedOptions.containsKey(i);
+        String? selected = _selectedOptions[i];
+
+        children.add(Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${i+1}. ${q['question']}', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.text1)),
+            const SizedBox(height: 12),
+            if (q['options'] != null) ...((q['options'] as List).map((opt) {
+              bool isSelected = selected == opt.toString();
+              bool isCorrect = q['correct_answer'] == opt;
+              Color bgColor = Colors.white;
+              Color borderColor = AppColors.border;
+              Color textColor = AppColors.text2;
+              Widget? trailing;
+
+              if (answered) {
+                if (isCorrect) {
+                  bgColor = Colors.green.withOpacity(0.1);
+                  borderColor = Colors.green;
+                  textColor = Colors.green[800]!;
+                  trailing = const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16);
+                } else if (isSelected) {
+                  bgColor = Colors.red.withOpacity(0.1);
+                  borderColor = Colors.red;
+                  textColor = Colors.red[800]!;
+                  trailing = const Icon(Icons.cancel_rounded, color: Colors.red, size: 16);
+                }
+              } else if (isSelected) {
+                borderColor = const Color(0xFF6B38D4);
+                bgColor = const Color(0xFF6B38D4).withOpacity(0.05);
+              }
+
+              return GestureDetector(
+                onTap: answered ? null : () => setState(() => _selectedOptions[i] = opt.toString()),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(children: [
+                    Expanded(child: Text(opt.toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: textColor))),
+                    if (trailing != null) trailing,
+                  ]),
+                ),
+              );
+            }).toList()),
+            if (answered && q['explanation'] != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFF6B38D4).withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Explanation', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF6B38D4))),
+                  const SizedBox(height: 4),
+                  Text(q['explanation'].toString(), style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text2)),
+                ]),
+              )
+            ]
+          ]),
+        ));
+      }
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
+  }
+}
+

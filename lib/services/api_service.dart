@@ -698,6 +698,7 @@ class ApiService {
 
   Future<dynamic> generateLessonPlan(Map<String, dynamic> payload) async => await AiService.generateLessonPlan(payload);
   Future<dynamic> generateWorksheet(Map<String, dynamic> payload) async => await AiService.generateWorksheet(payload);
+  Future<dynamic> evaluateWorksheet(Map<String, dynamic> payload) async => await AiService.evaluateWorksheet(payload);
   Future<dynamic> generateQuiz(Map<String, dynamic> payload) async => await AiService.generateQuiz(payload);
   Future<dynamic> generateQuestionPaper(Map<String, dynamic> payload) async => await AiService.generateQuestionPaper(payload);
   Future<dynamic> generateStudyNotes(Map<String, dynamic> payload) async => await AiService.generateStudyNotes(payload);
