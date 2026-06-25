@@ -164,8 +164,8 @@ class _Subscriptions extends StatelessWidget {
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     pageTitle('Subscriptions', subtitle: 'Manage active tenant subscriptions'),
     appCard(Column(children: [
-      listItem(avIcon: Icons.business, name: 'Westfield Academy', sub: 'Pro Plan · Expires Dec 2025', badgeText: 'Active', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
-      listItem(avIcon: Icons.business, name: 'Northgate Prep', sub: 'Enterprise · Expires Jan 2026', badgeText: 'Active', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
+      listItem(avIcon: Icons.business, avBg: AppColors.blueLight, avColor: AppColors.blue, name: 'Westfield Academy', sub: 'Pro Plan · Expires Dec 2025', badgeText: 'Active', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
+      listItem(avIcon: Icons.business, avBg: AppColors.blueLight, avColor: AppColors.blue, name: 'Northgate Prep', sub: 'Enterprise · Expires Jan 2026', badgeText: 'Active', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
     ])),
     const SizedBox(height: 16),
   ]);
