@@ -17,7 +17,10 @@ class GlobalPages extends StatelessWidget {
       case 'dashboard': return const _Dashboard();
       case 'schools':   return const _Schools();
       case 'domains':   return const _Domains();
-      case 'sysconfig': return const _SysConfig();
+      case 'sysconfig':     return const _SysConfig();
+      case 'subscriptions': return const _Subscriptions();
+      case 'payment_infrastructure': return const _PaymentInfrastructure();
+      case 'create_plan':   return const _CreatePlan();
       default:          return defaultPage(page);
     }
   }
@@ -150,6 +153,44 @@ class _SysConfig extends StatelessWidget {
       ProgressBar(label: 'Storage Used',   value: 67, gradient: blueGrad()),
       ProgressBar(label: 'API Rate Limit', value: 42, gradient: greenGrad()),
       ProgressBar(label: 'Email Quota',    value: 81, gradient: amberGrad()),
+    ]))),
+    const SizedBox(height: 16),
+  ]);
+}
+
+class _Subscriptions extends StatelessWidget {
+  const _Subscriptions();
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    pageTitle('Subscriptions', subtitle: 'Manage active tenant subscriptions'),
+    appCard(Column(children: [
+      listItem(avIcon: Icons.business, name: 'Westfield Academy', sub: 'Pro Plan · Expires Dec 2025', badgeText: 'Active', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
+      listItem(avIcon: Icons.business, name: 'Northgate Prep', sub: 'Enterprise · Expires Jan 2026', badgeText: 'Active', badgeBg: AppColors.greenLight, badgeColor: AppColors.green),
+    ])),
+    const SizedBox(height: 16),
+  ]);
+}
+
+class _PaymentInfrastructure extends StatelessWidget {
+  const _PaymentInfrastructure();
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    pageTitle('Payment Infrastructure', subtitle: 'Gateway configurations and keys'),
+    appCard(Column(children: [
+      ToggleRow(label: 'Stripe Integration', desc: 'Enable Stripe for credit cards', initialValue: true),
+      ToggleRow(label: 'PayPal Integration', desc: 'Enable PayPal checkout', initialValue: false),
+    ])),
+    const SizedBox(height: 16),
+  ]);
+}
+
+class _CreatePlan extends StatelessWidget {
+  const _CreatePlan();
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    pageTitle('Create Plan', subtitle: 'Define new subscription tiers'),
+    appCard(Padding(padding: const EdgeInsets.all(14), child: Column(children: const [
+      Text('Plan creation wizard will be available soon.', style: TextStyle(color: Colors.grey)),
     ]))),
     const SizedBox(height: 16),
   ]);
