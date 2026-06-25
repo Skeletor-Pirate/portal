@@ -1,0 +1,179 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================================================ */
+/*   LIGHT MODE – CSS Custom Properties (Default)   */
+/* ================================================ */
+:root {
+  /* ── Type Scale ───────────────────────────────── */
+  --font-size-3xs: 0.5625rem;  /*  9px — fine print, sub-badges    */
+  --font-size-2xs: 0.625rem;   /* 10px — badges, labels, timestamps */
+  --font-size-xs:  0.75rem;    /* 12px — captions, helper text      */
+  --font-size-sm:  0.875rem;   /* 14px — body text, table rows      */
+  --font-size-base:1rem;       /* 16px — default body               */
+  --font-size-lg:  1.125rem;   /* 18px — card headings              */
+  --font-size-xl:  1.25rem;    /* 20px — section headings           */
+  --font-size-2xl: 1.5rem;     /* 24px — page titles                */
+  --font-size-3xl: 1.875rem;   /* 30px — stat numbers               */
+  --font-size-4xl: 2.25rem;    /* 36px — hero numbers               */
+  --font-size-5xl: 3rem;       /* 48px — display                    */
+
+  --color-primary: #0058be;
+  --color-primary-container: #2170e4;
+  --color-primary-fixed: #d6e4ff;
+  --color-on-primary-fixed: #001a41;
+  --color-on-primary-container: #ffffff;
+
+  --color-secondary: #7c4dff;
+  --color-secondary-fixed: #ede7ff;
+
+  --color-tertiary: #00897b;
+  --color-tertiary-fixed: #d0f5ef;
+  --color-on-tertiary-fixed-variant: #00504a;
+
+  --color-background: #f8f9ff;
+  --color-surface: #f8f9ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e4ecfb;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d3e4fe;
+  --color-surface-variant: #e0e8f5;
+  --color-surface-tint: #0058be;
+
+  --color-on-surface: #0b1c30;
+  --color-on-surface-variant: #424754;
+  --color-on-background: #0b1c30;
+
+  --color-outline: #6b7a99;
+  --color-outline-variant: #c4d0e8;
+
+  --color-error: #ba1a1a;
+}
+
+/* ================================================ */
+/*   DARK MODE – CSS Custom Property Overrides      */
+/* ================================================ */
+.dark {
+  --color-primary: #91c0ff;
+  --color-primary-container: #1a5cb8;
+  --color-primary-fixed: #1e2d42;
+  --color-on-primary-fixed: #c8dfff;
+  --color-on-primary-container: #d6eaff;
+
+  --color-secondary: #c9b8ff;
+  --color-secondary-fixed: #2a1f4a;
+
+  --color-tertiary: #6cdfd0;
+  --color-tertiary-fixed: #1a3330;
+  --color-on-tertiary-fixed-variant: #a0ede4;
+
+  --color-background: #0e1520;
+  --color-surface: #0e1520;
+  --color-surface-container-lowest: #151d2b;
+  --color-surface-container-low: #1a2336;
+  --color-surface-container: #1f2a3f;
+  --color-surface-container-high: #263348;
+  --color-surface-container-highest: #2d3c54;
+  --color-surface-variant: #1e2d42;
+  --color-surface-tint: #91c0ff;
+
+  --color-on-surface: #d6e4ff;
+  --color-on-surface-variant: #9aaecb;
+  --color-on-background: #d6e4ff;
+
+  --color-outline: #5a7090;
+  --color-outline-variant: #2d3c54;
+
+  --color-error: #ffb4ab;
+}
+
+/* ================================================ */
+/*   Global Base Styles                             */
+/* ================================================ */
+html {
+  background-color: var(--color-background);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  background-color: var(--color-background);
+  min-height: 100vh;
+}
+
+/* ================================================ */
+/*   Utility Classes                                */
+/* ================================================ */
+.primary-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-container) 100%
+  );
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+.dark .glass-effect {
+  background: rgba(21, 29, 43, 0.8);
+}
+
+.ambient-shadow {
+  box-shadow: 0 12px 32px rgba(11, 28, 48, 0.06);
+}
+
+.dark .ambient-shadow {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+.custom-shadow {
+  box-shadow: 0 4px 16px rgba(11, 28, 48, 0.06);
+}
+
+.dark .custom-shadow {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* ================================================ */
+/*   Range Input                                    */
+/* ================================================ */
+input[type="range"] {
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--color-surface-container-highest);
+  height: 6px;
+  border-radius: 3px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  margin-top: -5px;
+  background: var(--color-primary);
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+}
+
+/* ================================================ */
+/*   Scrollbar                                      */
+/* ================================================ */
+.dark ::-webkit-scrollbar-track {
+  background: var(--color-surface-container-low);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+}

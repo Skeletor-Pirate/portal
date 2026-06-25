@@ -1,0 +1,71 @@
+/* ===================== */
+/*  Light Mode (Default) */
+/* ===================== */
+.bg-surface {
+  background: var(--color-surface);
+}
+
+.text-on-surface {
+  color: var(--color-on-surface);
+}
+
+.bg-surface-container-lowest {
+  background: var(--color-surface-container-lowest);
+}
+
+.bg-surface-container-low {
+  background: var(--color-surface-container-low);
+}
+
+.bg-surface-container {
+  background: var(--color-surface-container);
+}
+
+.bg-surface-container-high {
+  background: var(--color-surface-container-high);
+}
+
+.bg-surface-container-highest {
+  background: var(--color-surface-container-highest);
+}
+
+.text-on-surface-variant {
+  color: var(--color-on-surface-variant);
+}
+
+.text-outline {
+  color: var(--color-outline);
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+
+.bg-primary-fixed {
+  background: var(--color-primary-fixed);
+}
+
+.bg-primary-container {
+  background: var(--color-primary-container);
+}
+
+.bg-secondary {
+  background: var(--color-secondary);
+}
+
+.border-outline-variant {
+  border-color: var(--color-outline-variant);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+.dark .glass-card {
+  background: rgba(21, 29, 43, 0.8);
+}
+
+.primary-gradient {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+}
