@@ -1390,8 +1390,8 @@ class _AIToolsState extends State<_AITools> {
     try {
       final payload = {
         'subject': _selectedSubject,
-        'grade': _selectedClass,
-        'chapter': _selectedChapter,
+        'class_name': _selectedClass,
+        'chapter_name': _selectedChapter,
         'topic': effectiveTopic,
       };
       
