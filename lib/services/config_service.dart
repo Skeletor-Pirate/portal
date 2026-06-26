@@ -4,8 +4,8 @@ class ConfigService {
   static late SharedPreferences _prefs;
 
   // Default fallback URLs
-  static const String _defaultServerUrl = 'http://172.20.10.6:8000';
-  static const String _defaultAiUrl = 'http://172.20.10.6:8001';
+  static const String _defaultServerUrl = 'https://api.aicos.gridsphere.in';
+  static const String _defaultAiUrl = 'https://rag.aicos.gridsphere.in';
 
   static const String _keyServerUrl = 'custom_server_url';
   static const String _keyAiUrl = 'custom_ai_url';
