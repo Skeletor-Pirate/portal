@@ -6,7 +6,9 @@ import 'api_service.dart';
 class AiService {
   static Future<dynamic> _callAiEndpoint(String endpoint, Map<String, dynamic> payload) async {
     try {
-      final uri = Uri.parse('${ConfigService.serverUrl}$endpoint');
+      String baseUrl = ConfigService.aiUrl;
+      if (baseUrl.endsWith('/')) baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+      final uri = Uri.parse('$baseUrl$endpoint');
       final h = <String, String>{'Content-Type': 'application/json'};
       if (TokenStore.access != null) {
         h['Authorization'] = 'Bearer ${TokenStore.access}';

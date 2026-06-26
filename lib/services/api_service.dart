@@ -76,12 +76,14 @@ class ApiService {
   }
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {
-    final base = Uri.parse('$kBaseUrl$path');
+    String base = kBaseUrl;
+    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
+    final baseUri = Uri.parse('$base$path');
     if (query != null && query.isNotEmpty) {
-      return base.replace(
+      return baseUri.replace(
           queryParameters: query.map((k, v) => MapEntry(k, v.toString())));
     }
-    return base;
+    return baseUri;
   }
 
   Future<dynamic> _parse(http.Response res, {bool auth = true}) async {
@@ -678,7 +680,9 @@ class ApiService {
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<dynamic> _callAiApi(String path, Map<String, dynamic> body) async {
-    final uri = Uri.parse('$kAiBaseUrl$path');
+    String baseAi = kAiBaseUrl;
+    if (baseAi.endsWith('/')) baseAi = baseAi.substring(0, baseAi.length - 1);
+    final uri = Uri.parse('$baseAi$path');
     final h = <String, String>{'Content-Type': 'application/json'};
     if (TokenStore.access != null) {
       h['Authorization'] = 'Bearer ${TokenStore.access}';
