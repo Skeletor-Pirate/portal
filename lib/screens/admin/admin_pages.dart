@@ -50,7 +50,7 @@ class _DashboardState extends State<_Dashboard> {
   void initState() { super.initState(); _loadData(); }
 
   Future<void> _loadData() async {
-    if (!TokenStore.hasTokens || AppStore.instance.isDevMode) { setState(() => _loading = false); return; }
+    if (!TokenStore.hasTokens) { setState(() => _loading = false); return; }
     try {
       final results = await Future.wait([
         ApiService().getMyProfile(),

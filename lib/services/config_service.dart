@@ -1,11 +1,11 @@
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 class ConfigService {
   static late SharedPreferences _prefs;
 
-  // Default fallback URLs
-  static const String _defaultServerUrl = 'https://api.aicos.gridsphere.in';
-  static const String _defaultAiUrl = 'https://rag.aicos.gridsphere.in';
+  // In a real app we'd use environment variables, but here we proxy if on web
+  static const String _defaultServerUrl = kIsWeb ? 'http://localhost:8081' : 'https://api.aicos.gridsphere.in';
+  static const String _defaultAiUrl = kIsWeb ? 'http://localhost:8081/ai' : 'https://rag.aicos.gridsphere.in';
 
   static const String _keyServerUrl = 'custom_server_url';
   static const String _keyAiUrl = 'custom_ai_url';

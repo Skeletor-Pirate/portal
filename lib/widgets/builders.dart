@@ -858,69 +858,47 @@ Widget dangerBtn(String label, {VoidCallback? onTap}) =>
     );
 
 // ── HERO PORTRAIT ──────────────────────────────
-Widget heroPortrait(String avatarAsset, String school) => Stack(
-      alignment: Alignment.bottomLeft,
-      children: [
-        SizedBox(
-          height: 200,
-          width: double.infinity,
-          child: ShaderMask(
-            shaderCallback: (rect) => const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x00FFFFFF), Color(0xFFFFFFFF)],
-              stops: [0.45, 1.0],
-            ).createShader(rect),
-            blendMode: BlendMode.dstOut,
-            child: Image.asset(
-              avatarAsset,
-              width: double.infinity,
-              height: 200,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.gradA, AppColors.gradB],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 12,
-          left: 12,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.navy.withOpacity(0.75),
-              borderRadius: BorderRadius.circular(rFull),
-            ),
-            child: Text(school.toUpperCase(),
-                style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                    color: Colors.white)),
-          ),
-        ),
-      ],
-    );
+// Replaced the giant background banner with a simple top spacer for a cleaner look
+Widget heroPortrait(String avatarAsset, String school, {String? imageUrl}) => const SizedBox(height: 30);
 
 Widget profileInfo(String name, String role, String idLabel) => Container(
       padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(name, style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: AppColors.text1)),
-        Text(role, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3)),
-        Text(idLabel, style: GoogleFonts.plusJakartaSans(
-            fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.blue)),
-      ]),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: AppColors.text1)),
+              Text(role, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3)),
+              Text(idLabel, style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.blue)),
+            ]),
+          ),
+          ValueListenableBuilder<String?>(
+            valueListenable: AppStore.instance.profileImageUrl,
+            builder: (_, imageUrl, __) => Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.blueLight,
+                shape: BoxShape.circle,
+              ),
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? ClipOval(
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.person, color: AppColors.blue),
+                      ),
+                    )
+                  : const Icon(Icons.person, color: AppColors.blue),
+            ),
+          ),
+        ],
+      ),
     );
 
 // ── SCHOOL CARD ────────────────────────────────

@@ -41,7 +41,7 @@ class _DashboardState extends State<_Dashboard> {
   @override
   void initState() {
     super.initState();
-    if (TokenStore.hasTokens && !AppStore.instance.isDevMode) {
+    if (TokenStore.hasTokens) {
       ApiService().getMyProfile().then((p) {
         if (mounted) setState(() => _profile = p);
       }).catchError((_) {});

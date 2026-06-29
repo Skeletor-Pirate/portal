@@ -1,9 +1,11 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'db_service.dart';
-import 'ai_service.dart';import 'config_service.dart';
+import 'ai_service.dart';
+import 'config_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
@@ -25,18 +27,36 @@ class TokenStore {
   static String? _access;
   static String? _refresh;
 
+  static const String _keyAccess  = 'auth_access_token';
+  static const String _keyRefresh = 'auth_refresh_token';
+
   static String? get access  => _access;
   static String? get refresh => _refresh;
   static bool   get hasTokens => _access != null;
 
-  static void save({required String access, required String refresh}) {
-    _access  = access;
-    _refresh = refresh;
+  /// Load persisted tokens from SharedPreferences (call once at startup)
+  static Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    _access  = prefs.getString(_keyAccess);
+    _refresh = prefs.getString(_keyRefresh);
   }
 
-  static void clear() {
+  /// Save tokens in memory AND persist to disk
+  static Future<void> save({required String access, required String refresh}) async {
+    _access  = access;
+    _refresh = refresh;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyAccess, access);
+    await prefs.setString(_keyRefresh, refresh);
+  }
+
+  /// Clear tokens from memory AND disk
+  static Future<void> clear() async {
     _access  = null;
     _refresh = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyAccess);
+    await prefs.remove(_keyRefresh);
   }
 }
 
@@ -90,7 +110,7 @@ class ApiService {
     if (res.statusCode == 401 && auth) {
       final ok = await _tryRefresh();
       if (!ok) {
-        TokenStore.clear();
+        await TokenStore.clear();
         throw ApiException('Session expired. Please log in again.', statusCode: 401);
       }
       // Token refreshed — caller should retry. Throw a typed sentinel.
@@ -136,7 +156,7 @@ class ApiService {
       );
       if (res.statusCode == 200) {
         final d = jsonDecode(res.body);
-        TokenStore.save(access: d['access'], refresh: TokenStore.refresh!);
+        await TokenStore.save(access: d['access'], refresh: TokenStore.refresh!);
         return true;
       }
     } catch (_) {}
@@ -249,7 +269,7 @@ class ApiService {
       auth: false,
     );
     final r = AuthResult.fromJson(d);
-    TokenStore.save(access: r.access, refresh: r.refresh);
+    await TokenStore.save(access: r.access, refresh: r.refresh);
     return r;
   }
 
@@ -261,7 +281,7 @@ class ApiService {
 
   /// GET /api/v1/profiles/me/
   Future<ProfileContext> getProfileContext() async {
-    final d = await get('/api/v1/profiles/me/');
+    final d = await _getWithFallback('/api/v1/profiles/me/', fallback: '/api/v1/users/me/');
     return ProfileContext.fromJson(d);
   }
 
@@ -730,6 +750,55 @@ class ApiService {
       'content_type': contentType,
       'data': data,
     }, fallback: '/api/v1/saved-ai-content/');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PROFILE PICTURE  —  R2 upload flow
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Step 1: Get a presigned upload URL from the backend
+  Future<Map<String, dynamic>> getProfileImageUploadUrl({
+    required String fileName,
+    required String contentType,
+    required String profileType,
+  }) async {
+    final d = await post('/api/v1/uploads/profile-image/', {
+      'file_name': fileName,
+      'content_type': contentType,
+      'profile_type': profileType,
+    });
+    return Map<String, dynamic>.from(d);
+  }
+
+  /// Step 2: Upload file bytes directly to R2 using the presigned URL
+  Future<void> uploadToR2(String uploadUrl, List<int> bytes, String contentType) async {
+    final res = await _client.put(
+      Uri.parse(uploadUrl),
+      headers: {'Content-Type': contentType},
+      body: bytes,
+    );
+    if (res.statusCode >= 400) {
+      throw ApiException('Upload to R2 failed (${res.statusCode})', statusCode: res.statusCode);
+    }
+  }
+
+  /// Step 3: Update profile with the uploaded file path
+  Future<Map<String, dynamic>> updateProfilePicture({
+    required String profileType,
+    required String filePath,
+  }) async {
+    final d = await patch('/api/v1/profiles/${profileType}s/me/', {
+      'profile_picture': filePath,
+    });
+    return Map<String, dynamic>.from(d);
+  }
+
+  /// Step 4: Fetch profile picture presigned URL for display
+  Future<Map<String, dynamic>> fetchProfilePictureUrl(String profileType) async {
+    final d = await get('/api/v1/profiles/me/picture/', query: {
+      'profile_type': profileType,
+    });
+    return Map<String, dynamic>.from(d);
   }
 }
 

@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 import '../models/role_config.dart';
 import '../services/api_service.dart';
 import '../services/config_service.dart';
-import '../services/dev_auth.dart';
 import '../services/app_store.dart';
 import 'app_screen.dart';
-import 'api_explorer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LANDING SCREEN
+// UNIFIED LOGIN SCREEN  —  single screen with email + password
 // ─────────────────────────────────────────────────────────────────────────────
 
 class LoginScreen extends StatefulWidget {
@@ -21,567 +18,89 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _showRoles = false;
-  bool _showDevRoles = false;     // ← dev bypass role picker
-
-  @override
-  Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: AppColors.surface,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ));
-
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      extendBodyBehindAppBar: true,
-      // ── DEV floating badge ──────────────────────────────────────────────
-      floatingActionButton: _DevFab(onTap: () => setState(() {
-        _showDevRoles = !_showDevRoles;
-        _showRoles = false;
-      })),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _heroHeader(context),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Icon(Icons.auto_awesome_rounded, size: 12, color: AppColors.navy2),
-                  const SizedBox(width: 4),
-                  Text("The Future of Pedagogy",
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.navy2)),
-                ]),
-                const SizedBox(height: 12),
-                Text("AI Powered School ERP\nfor Modern Education",
-                    style: GoogleFonts.dmSerifDisplay(fontSize: 30, color: AppColors.text1, height: 1.22)),
-                const SizedBox(height: 13),
-                Text("An intelligent platform for schools, teachers, students, and parents — with automation, analytics, and personalised learning support.",
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text3, height: 1.7)),
-                const SizedBox(height: 22),
-                Row(children: [
-                  GestureDetector(
-                    onTap: () => setState(() { _showRoles = true; _showDevRoles = false; }),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.gradA, AppColors.gradC]),
-                        borderRadius: BorderRadius.circular(rMd),
-                        boxShadow: const [BoxShadow(color: Color(0x4D2D1B8E), blurRadius: 10, offset: Offset(0, 3))],
-                      ),
-                      child: Text("Login", style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      border: Border.all(color: AppColors.border2, width: 1.5),
-                      borderRadius: BorderRadius.circular(rMd),
-                    ),
-                    child: Text("View Features", style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text2)),
-                  ),
-                ]),
-              ]),
-            ),
-
-            // ── decorative mockup card ────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.gradA, AppColors.gradB]),
-                    borderRadius: BorderRadius.circular(rLg),
-                    boxShadow: shadowMd,
-                  ),
-                  child: Column(children: [
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.07), borderRadius: const BorderRadius.only(topLeft: Radius.circular(rLg), topRight: Radius.circular(rLg))),
-                      child: Row(children: [
-                        _dot(const Color(0xFFEF4444)), const SizedBox(width: 5),
-                        _dot(const Color(0xFFEAB308)), const SizedBox(width: 5),
-                        _dot(const Color(0xFF22C55E)), const SizedBox(width: 7),
-                        Text("School Management Dashboard", style: GoogleFonts.plusJakartaSans(fontSize: 9, color: Colors.white.withOpacity(0.5))),
-                      ]),
-                    ),
-                    SizedBox(height: 172, child: Row(children: [
-                      Container(
-                        width: 38, color: Colors.white.withOpacity(0.06), padding: const EdgeInsets.all(6),
-                        child: Column(children: List.generate(5, (i) => Container(margin: const EdgeInsets.only(bottom: 5), height: 24, decoration: BoxDecoration(color: i == 0 ? AppColors.gradC : Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(4))))),
-                      ),
-                      Expanded(child: Padding(padding: const EdgeInsets.all(9), child: Column(children: [
-                        Row(children: [
-                          Expanded(flex: 6, child: Container(height: 10, decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(3)))),
-                          const SizedBox(width: 4),
-                          Expanded(flex: 3, child: Container(height: 10, decoration: BoxDecoration(color: AppColors.gradC, borderRadius: BorderRadius.circular(3)))),
-                        ]),
-                        const SizedBox(height: 6),
-                        ...List.generate(4, (i) => Padding(padding: const EdgeInsets.only(bottom: 3), child: Row(children: [
-                          Expanded(flex: 18, child: Container(height: 8, decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(2)))),
-                          const SizedBox(width: 4),
-                          Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: i == 0 ? AppColors.gradC : i == 2 ? const Color(0xFF22C55E) : const Color(0xFFEAB308))),
-                          const SizedBox(width: 4),
-                          Expanded(flex: 5, child: Container(height: 8, decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(2)))),
-                        ]))),
-                        const Spacer(),
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [0.55, 0.80, 0.45, 0.95, 0.65, 0.75].map((h) =>
-                              Expanded(child: Container(margin: const EdgeInsets.symmetric(horizontal: 2), height: 40 * h,
-                                  decoration: BoxDecoration(color: AppColors.gradC.withOpacity(0.55), borderRadius: const BorderRadius.vertical(top: Radius.circular(2)))))).toList()),
-                      ]))),
-                    ])),
-                  ]),
-                ),
-                const SizedBox(height: 12),
-                Text("AI Insight", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.navy)),
-                const SizedBox(height: 4),
-                Text("Student retention is predicted to increase by 12% next quarter based on current engagement metrics.",
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.text3, height: 1.55)),
-              ]),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Wrap(spacing: 8, runSpacing: 8, children: [
-                _pill("AI Analytics"), _pill("Attendance"), _pill("Fee Management"), _pill("Academics"), _pill("Parent Portal"),
-              ]),
-            ),
-
-            const SizedBox(height: 10),
-
-            // ── Register + API Explorer ────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(children: [
-                Expanded(child: GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RegisterScreen())),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      border: Border.all(color: AppColors.border2, width: 1.5),
-                      borderRadius: BorderRadius.circular(rMd),
-                    ),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Icon(Icons.person_add_rounded, size: 15, color: AppColors.navy),
-                      const SizedBox(width: 6),
-                      Text("Register", style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.navy)),
-                    ]),
-                  ),
-                )),
-                const SizedBox(width: 10),
-                Expanded(child: GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ApiExplorerScreen())),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A2E),
-                      border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.5), width: 1.5),
-                      borderRadius: BorderRadius.circular(rMd),
-                    ),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Container(width: 5, height: 5,
-                          decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
-                      const SizedBox(width: 6),
-                      Text("API Explorer", style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00FF88))),
-                    ]),
-                  ),
-                )),
-              ]),
-            ),
-
-            // ── role selector (normal login) ──────────────────────────────
-            if (_showRoles) _RoleSelector(onRole: _enterRole),
-
-            // ── dev role selector ─────────────────────────────────────────
-            if (_showDevRoles) _DevRoleSelector(onRole: _enterDevRole),
-
-            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _enterRole(UserRole role) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => LoginFormScreen(role: role)));
-  }
-
-  void _enterDevRole(UserRole role) {
-    DevAuth.activate();
-    AppStore.instance.activateDevMode();
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => AppScreen(role: role),
-    ));
-  }
-
-  Widget _heroHeader(BuildContext context) {
-    final topPad = MediaQuery.of(context).padding.top;
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, topPad + 14, 20, 16),
-      decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.gradA, AppColors.gradB, AppColors.gradC])),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Row(children: [
-          Container(width: 34, height: 34, decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.5)),
-              child: Center(child: Text("A", style: GoogleFonts.dmSerifDisplay(fontSize: 18, color: Colors.white)))),
-          const SizedBox(width: 9),
-          Text("Academic Architect", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -0.3)),
-        ]),
-        Row(children: [
-          _navLink("Features"), const SizedBox(width: 14), 
-          GestureDetector(
-            onTap: () => _showServerSettings(context),
-            child: const Icon(Icons.settings_rounded, size: 18, color: Colors.white),
-          ),
-        ]),
-      ]),
-    );
-  }
-
-  void _showServerSettings(BuildContext context) {
-    final serverCtrl = TextEditingController(text: ConfigService.serverUrl);
-    final aiCtrl = TextEditingController(text: ConfigService.aiUrl);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text("Server Settings", style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.text1)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Backend API URL", style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text2)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: serverCtrl,
-              decoration: InputDecoration(
-                filled: true, fillColor: AppColors.bg,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
-              ),
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
-            ),
-            const SizedBox(height: 16),
-            Text("AI Service URL", style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text2)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: aiCtrl,
-              decoration: InputDecoration(
-                filled: true, fillColor: AppColors.bg,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(rSm), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
-              ),
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text1),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text("Cancel", style: GoogleFonts.plusJakartaSans(color: AppColors.text3)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.navy),
-            onPressed: () async {
-              await ConfigService.setServerUrl(serverCtrl.text);
-              await ConfigService.setAiUrl(aiCtrl.text);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Server settings saved.")));
-              }
-            },
-            child: Text("Save", style: GoogleFonts.plusJakartaSans(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _navLink(String label) => Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.85)));
-  Widget _dot(Color c) => Container(width: 7, height: 7, decoration: BoxDecoration(color: c, shape: BoxShape.circle));
-  Widget _pill(String label) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rFull), boxShadow: shadowSm),
-    child: Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text2)),
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DEV FLOATING ACTION BUTTON
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _DevFab extends StatelessWidget {
-  final VoidCallback onTap;
-  const _DevFab({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(rMd),
-          border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.5), width: 1.5),
-          boxShadow: [BoxShadow(color: const Color(0xFF00FF88).withOpacity(0.15), blurRadius: 12, offset: const Offset(0, 4))],
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
-          const SizedBox(width: 6),
-          Text("DEV LOGIN", style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF00FF88), letterSpacing: 1.0)),
-        ]),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DEV ROLE SELECTOR — skips API, goes straight to AppScreen
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _DevRoleSelector extends StatelessWidget {
-  final void Function(UserRole) onRole;
-  const _DevRoleSelector({required this.onRole});
-
-  @override
-  Widget build(BuildContext context) {
-    final roles = [
-      (_DevRoleCard(icon: Icons.home_work_rounded,    label: "School Admin",  name: "Priya Sharma", bg: const Color(0xFFEBEEFF), iconColor: AppColors.blue),      UserRole.admin),
-      (_DevRoleCard(icon: Icons.menu_book_rounded,    label: "Teacher",       name: "Mr. Hoang",    bg: AppColors.tealLight,    iconColor: AppColors.teal),        UserRole.teacher),
-      (_DevRoleCard(icon: Icons.school_rounded,       label: "Student",       name: "Alex Rivers",  bg: AppColors.greenLight,   iconColor: AppColors.green),       UserRole.student),
-      (_DevRoleCard(icon: Icons.people_rounded,       label: "Parent",        name: "Raj Mehta",    bg: AppColors.amberLight,   iconColor: AppColors.amber),       UserRole.parent),
-      (_DevRoleCard(icon: Icons.credit_card_rounded,  label: "Accountant",    name: "Sarah Chen",   bg: AppColors.redLight,     iconColor: AppColors.red),         UserRole.accountant),
-      (_DevRoleCard(icon: Icons.language_rounded,     label: "Global Admin",  name: "Jordan Wells", bg: const Color(0xFFEDE9FF),iconColor: const Color(0xFF5B3FD8)), UserRole.global),
-    ];
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(rXl),
-        border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.3), width: 1.5),
-        boxShadow: [BoxShadow(color: const Color(0xFF00FF88).withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 8))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // ── Header ─────────────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(rXl)),
-            border: Border(bottom: BorderSide(color: const Color(0xFF00FF88).withOpacity(0.15))),
-          ),
-          child: Row(children: [
-            Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
-            const SizedBox(width: 8),
-            Text("DEV MODE — Pick a role to preview",
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF00FF88), letterSpacing: 0.5)),
-            const Spacer(),
-            Text("No API calls", style: GoogleFonts.plusJakartaSans(fontSize: 9, color: Colors.white.withOpacity(0.3))),
-          ]),
-        ),
-
-        // ── Disclaimer ─────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            "Uses dummy data only. Backend is bypassed. Remove DevAuth before release.",
-            style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white.withOpacity(0.35), height: 1.5),
-          ),
-        ),
-
-        // ── Role grid ──────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-          child: GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 0.88,
-            children: roles.map((r) => GestureDetector(onTap: () => onRole(r.$2), child: r.$1)).toList(),
-          ),
-        ),
-      ]),
-    );
-  }
-}
-
-class _DevRoleCard extends StatelessWidget {
-  final IconData icon;
-  final String label, name;
-  final Color bg, iconColor;
-  const _DevRoleCard({required this.icon, required this.label, required this.name, required this.bg, required this.iconColor});
-
-  @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(rLg),
-      border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-    ),
-    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Container(width: 40, height: 40,
-          decoration: BoxDecoration(color: bg.withOpacity(0.85), borderRadius: BorderRadius.circular(rMd)),
-          child: Icon(icon, size: 21, color: iconColor)),
-      const SizedBox(height: 7),
-      Text(label, textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.9))),
-      const SizedBox(height: 2),
-      Text(name, textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(fontSize: 9, color: Colors.white.withOpacity(0.4))),
-    ]),
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NORMAL ROLE SELECTOR (unchanged)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _RoleSelector extends StatelessWidget {
-  final void Function(UserRole) onRole;
-  const _RoleSelector({required this.onRole});
-  @override
-  Widget build(BuildContext context) {
-    final roles = [
-      (_RoleBtn(icon: Icons.home_work_rounded,   label: "School Admin", bg: const Color(0xFFEBEEFF), iconColor: AppColors.blue),      UserRole.admin),
-      (_RoleBtn(icon: Icons.menu_book_rounded,   label: "Teacher",      bg: AppColors.tealLight,    iconColor: AppColors.teal),        UserRole.teacher),
-      (_RoleBtn(icon: Icons.school_rounded,      label: "Student",      bg: AppColors.greenLight,   iconColor: AppColors.green),       UserRole.student),
-      (_RoleBtn(icon: Icons.people_rounded,      label: "Parent",       bg: AppColors.amberLight,   iconColor: AppColors.amber),       UserRole.parent),
-      (_RoleBtn(icon: Icons.credit_card_rounded, label: "Accountant",   bg: AppColors.redLight,     iconColor: AppColors.red),         UserRole.accountant),
-      (_RoleBtn(icon: Icons.language_rounded,    label: "Global Admin", bg: const Color(0xFFEDE9FF),iconColor: const Color(0xFF5B3FD8)), UserRole.global),
-    ];
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(rXl)),
-        boxShadow: [BoxShadow(color: Color(0x142D1B8E), blurRadius: 24, offset: Offset(0, -6))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(child: Container(width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: AppColors.border2, borderRadius: BorderRadius.circular(rFull)))),
-        Text("SELECT YOUR PORTAL", style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppColors.text4)),
-        const SizedBox(height: 14),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.9,
-          children: roles.map((r) => GestureDetector(onTap: () => onRole(r.$2), child: r.$1)).toList(),
-        ),
-      ]),
-    );
-  }
-}
-
-class _RoleBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color bg, iconColor;
-  const _RoleBtn({required this.icon, required this.label, required this.bg, required this.iconColor});
-  @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border, width: 1.5), borderRadius: BorderRadius.circular(rLg), boxShadow: shadowSm),
-    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Container(width: 42, height: 42, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: AppColors.border, width: 1.5)), child: Icon(icon, size: 22, color: iconColor)),
-      const SizedBox(height: 9),
-      Text(label, textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.text2)),
-    ]),
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LOGIN FORM SCREEN (real API — unchanged except dev banner addition)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class LoginFormScreen extends StatefulWidget {
-  final UserRole role;
-  const LoginFormScreen({super.key, required this.role});
-  @override
-  State<LoginFormScreen> createState() => _LoginFormScreenState();
-}
-
-class _LoginFormScreenState extends State<LoginFormScreen> {
-  final _usernameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  bool _loading = false;
   bool _obscure = true;
+  bool _loading = false;
   String? _error;
 
-  RoleConfig get _cfg => kRoles[widget.role]!;
-
   @override
-  void dispose() { _usernameCtrl.dispose(); _passwordCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _login() async {
-    final username = _usernameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
-    if (username.isEmpty || password.isEmpty) {
-      setState(() => _error = "Please enter your email address and password.");
+    if (email.isEmpty || password.isEmpty) {
+      setState(
+          () => _error = 'Please enter your email address and password.');
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      await ApiService().login(username, password);
-      // Fetch session data (profile context + auth me) from backend
+      await ApiService().login(email, password);
       await AppStore.instance.initSession();
       if (!mounted) return;
 
       // Auto-detect user role from backend
-      UserRole detectedRole = widget.role;
+      UserRole detectedRole = UserRole.admin;
       final ctx = AppStore.instance.profileContext;
       if (ctx != null) {
-        final backendRoles = ctx.roles.map((r) => r.toLowerCase()).toList();
-        final isSuperuser  = ctx.isSuperuser;
+        final backendRoles =
+            ctx.roles.map((r) => r.toLowerCase()).toList();
+        final isSuperuser = ctx.isSuperuser;
 
         if (isSuperuser) {
           detectedRole = UserRole.global;
         } else if (backendRoles.any((r) => r.contains('admin'))) {
           detectedRole = UserRole.admin;
-        } else if (backendRoles.any((r) => r.contains('teacher')) || ctx.profiles.teacher.exists) {
+        } else if (backendRoles.any((r) => r.contains('teacher')) ||
+            ctx.profiles.teacher.exists) {
           detectedRole = UserRole.teacher;
-        } else if (backendRoles.any((r) => r.contains('student')) || ctx.profiles.student.exists) {
+        } else if (backendRoles.any((r) => r.contains('student')) ||
+            ctx.profiles.student.exists) {
           detectedRole = UserRole.student;
-        } else if (backendRoles.any((r) => r.contains('parent')) || ctx.profiles.parent.exists) {
+        } else if (backendRoles.any((r) => r.contains('parent')) ||
+            ctx.profiles.parent.exists) {
           detectedRole = UserRole.parent;
-        } else if (backendRoles.any((r) => r.contains('accountant') || r.contains('finance'))) {
+        } else if (backendRoles.any(
+            (r) => r.contains('accountant') || r.contains('finance'))) {
           detectedRole = UserRole.accountant;
         }
-        // If none matched, keep the pre-selected role
       }
 
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AppScreen(role: detectedRole)));
+      Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => AppScreen(role: detectedRole)));
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = "Could not reach the server at ${ConfigService.serverUrl}. Error: $e");
+      setState(() => _error =
+          'Could not reach the server at ${ConfigService.serverUrl}. Error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  /// Dev bypass directly from the login form — no credentials needed
-  void _devBypass() {
-    DevAuth.activate();
-    AppStore.instance.activateDevMode();
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => AppScreen(role: widget.role)));
+  void _showRegisterDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Registration'),
+        content: const Text('Registration is currently handled by the school administration. Please contact your administrator.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          )
+        ],
+      ),
+    );
   }
 
   @override
@@ -591,140 +110,269 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: Column(children: [
-        // ── Top bar ────────────────────────────────────────────────────────
-        Container(
-          padding: EdgeInsets.fromLTRB(16, topPad + 12, 16, 18),
-          decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.gradA, AppColors.gradB])),
-          child: Row(children: [
-            GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(rMd), border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5)), child: const Icon(Icons.arrow_back_rounded, size: 16, color: Colors.white)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text("Sign In", style: GoogleFonts.dmSerifDisplay(fontSize: 20, color: Colors.white)),
-              Text(_cfg.label, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white.withOpacity(0.65))),
-            ])),
-            // ── DEV shortcut on top bar ────────────────────────────────────
-            GestureDetector(
-              onTap: _devBypass,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A2E),
-                  borderRadius: BorderRadius.circular(rSm),
-                  border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.6), width: 1.5),
+      body: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _header(topPad),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_error != null) _errorBanner(),
+
+                    const SizedBox(height: 10),
+
+                    // ── Main unified login form ───────────────────────────
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(rXl),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.navy.withOpacity(0.04),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _inputField('Email or Username', _emailCtrl,
+                              Icons.email_outlined,
+                              isEmail: true),
+                          const SizedBox(height: 16),
+                          _inputField(
+                              'Password', _passwordCtrl, Icons.lock_outline,
+                              isPassword: true),
+                          const SizedBox(height: 24),
+                          _loginButton(),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // ── Bottom links ───────────────────────────────────────
+                    GestureDetector(
+                      onTap: _showRegisterDialog,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          border: Border.all(
+                              color: AppColors.border2, width: 1.5),
+                          borderRadius: BorderRadius.circular(rMd),
+                        ),
+                        child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.person_add_rounded,
+                                  size: 16, color: AppColors.navy),
+                              const SizedBox(width: 8),
+                              Text('Register New Account',
+                                  style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.navy)),
+                            ]),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                  ],
                 ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
-                  const SizedBox(width: 5),
-                  Text("DEV", style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF00FF88), letterSpacing: 1.0)),
-                ]),
               ),
-            ),
-          ]),
-        ),
 
-        Expanded(child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20, 28, 20, 20 + bottomPad),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // ── Role badge ─────────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: AppColors.blueLight, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: AppColors.border, width: 1.5)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.verified_rounded, size: 14, color: AppColors.blue), const SizedBox(width: 6),
-                Text("Logging in as: ${_cfg.label}", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.blue)),
-              ]),
-            ),
-
-            const SizedBox(height: 28),
-
-            // ── Email ──────────────────────────────────────────────────────
-            Text("Email or Username", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text3)),
-            const SizedBox(height: 6),
-            TextField(controller: _usernameCtrl, keyboardType: TextInputType.emailAddress, textInputAction: TextInputAction.next, style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.text1), decoration: _inputDec("Enter your email or username", Icons.person_outline_rounded)),
-
-            const SizedBox(height: 16),
-
-            // ── Password ───────────────────────────────────────────────────
-            Text("Password", style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text3)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _passwordCtrl, obscureText: _obscure, textInputAction: TextInputAction.done, onSubmitted: (_) => _login(),
-              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.text1),
-              decoration: _inputDec("Enter your password", Icons.lock_outline_rounded).copyWith(
-                suffixIcon: GestureDetector(onTap: () => setState(() => _obscure = !_obscure), child: Icon(_obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18, color: AppColors.text4)),
-              ),
-            ),
-
-            // ── Error ──────────────────────────────────────────────────────
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(color: AppColors.redLight, borderRadius: BorderRadius.circular(rMd), border: Border.all(color: const Color(0xFFFCA5A5), width: 1.5)),
-                child: Row(children: [
-                  const Icon(Icons.error_outline_rounded, size: 14, color: AppColors.red), const SizedBox(width: 8),
-                  Expanded(child: Text(_error!, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.red, fontWeight: FontWeight.w500))),
-                ]),
+              // ── Footer ──────────────────────────────────────────────────
+              Padding(
+                padding: EdgeInsets.only(bottom: bottomPad + 20),
+                child: Column(
+                  children: [
+                    Text('Secure Cloud Login',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.text4)),
+                    const SizedBox(height: 4),
+                    Text('v2.0.4 • Academic Architect',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 10, color: AppColors.slateLight)),
+                  ],
+                ),
               ),
             ],
-
-            const SizedBox(height: 28),
-
-            // ── Sign In button (real API) ───────────────────────────────────
-            GestureDetector(
-              onTap: _loading ? null : _login,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.gradA, AppColors.gradC], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(rMd), boxShadow: shadowMd),
-                child: Center(child: _loading
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text("Sign In", style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white))),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ── Dev bypass button ─────────────────────────────────────────
-            GestureDetector(
-              onTap: _devBypass,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A2E),
-                  borderRadius: BorderRadius.circular(rMd),
-                  border: Border.all(color: const Color(0xFF00FF88).withOpacity(0.4), width: 1.5),
-                ),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
-                  const SizedBox(width: 8),
-                  Text("Dev Login — Skip API, use dummy data",
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00FF88))),
-                ]),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-            Center(child: Text("Enter the email or username provided by your school administrator, along with your password.", textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.text4, height: 1.5))),
-          ]),
-        )),
-      ]),
+          ),
+        ),
+      ),
     );
   }
 
-  InputDecoration _inputDec(String hint, IconData icon) => InputDecoration(
-    hintText: hint,
-    hintStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.text4),
-    prefixIcon: Icon(icon, size: 18, color: AppColors.text4),
-    filled: true, fillColor: AppColors.surface,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(rMd), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(rMd), borderSide: const BorderSide(color: AppColors.border, width: 1.5)),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(rMd), borderSide: const BorderSide(color: AppColors.blue, width: 1.5)),
-  );
+  // ── Header widget ─────────────────────────────────────────────────────────
+
+  Widget _header(double topPad) => Container(
+        padding: EdgeInsets.fromLTRB(20, topPad + 14, 20, 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(
+                color: AppColors.navy.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ],
+        ),
+        child: Column(
+          children: [
+            Center(
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                      colors: [AppColors.gradA, AppColors.gradC]),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                        color: AppColors.blue.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4))
+                  ],
+                ),
+                child: const Icon(Icons.school_rounded,
+                    color: Colors.white, size: 28),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Academic Architect',
+                style: GoogleFonts.dmSerifDisplay(
+                    fontSize: 24, color: AppColors.text1)),
+            const SizedBox(height: 4),
+            Text('Intelligent Portal',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text3,
+                    letterSpacing: 0.5)),
+          ],
+        ),
+      );
+
+  // ── Form Components ───────────────────────────────────────────────────────
+
+  Widget _errorBanner() => Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.redLight,
+          borderRadius: BorderRadius.circular(rMd),
+          border: Border.all(color: AppColors.red.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: AppColors.red, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Text(_error!,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12, color: AppColors.red))),
+          ],
+        ),
+      );
+
+  Widget _inputField(
+      String label, TextEditingController ctrl, IconData icon,
+      {bool isPassword = false, bool isEmail = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.text2)),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            borderRadius: BorderRadius.circular(rMd),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: TextField(
+            controller: ctrl,
+            obscureText: isPassword && _obscure,
+            keyboardType: isEmail
+                ? TextInputType.emailAddress
+                : TextInputType.text,
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 14, color: AppColors.text1),
+            decoration: InputDecoration(
+              hintText: 'Enter your ${label.toLowerCase()}',
+              hintStyle:
+                  GoogleFonts.plusJakartaSans(color: AppColors.text4),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 14),
+              prefixIcon: Icon(icon, size: 18, color: AppColors.text4),
+              suffixIcon: isPassword
+                  ? IconButton(
+                      icon: Icon(
+                          _obscure
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                          color: AppColors.text4),
+                      onPressed: () =>
+                          setState(() => _obscure = !_obscure),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _loginButton() => GestureDetector(
+        onTap: _loading ? null : _login,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                colors: [AppColors.gradA, AppColors.gradC]),
+            borderRadius: BorderRadius.circular(rMd),
+            boxShadow: [
+              BoxShadow(
+                  color: AppColors.blue.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4))
+            ],
+          ),
+          child: Center(
+            child: _loading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : Text('Sign In',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
+          ),
+        ),
+      );
 }

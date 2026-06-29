@@ -5,7 +5,6 @@ import '../theme.dart';
 import '../models/role_config.dart';
 import '../widgets/nav_icons.dart';
 import 'page_router.dart';
-import '../services/dev_auth.dart';
 import '../services/app_store.dart';
 
 class AppScreen extends StatefulWidget {
@@ -41,7 +40,7 @@ class _AppScreenState extends State<AppScreen> {
         // Main content column — fills the entire screen
         Column(children: [
           _topBar(context),
-          if (DevAuth.isActive) _devBanner(),
+
           Expanded(
             child: SingleChildScrollView(
               // Add bottom padding so content is not hidden behind bottom nav
@@ -333,7 +332,7 @@ class _AppScreenState extends State<AppScreen> {
         Padding(
           padding: EdgeInsets.fromLTRB(10, 10, 10, 10 + bottomPad),
           child: GestureDetector(
-            onTap: () { DevAuth.deactivate(); AppStore.instance.clearSession(); Navigator.of(context).pop(); },
+            onTap: () { AppStore.instance.clearSession(); Navigator.of(context).pop(); },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -506,23 +505,5 @@ class _AppScreenState extends State<AppScreen> {
       ),
     );
   }
-
-  // ── DEV MODE BANNER ────────────────────────────────────────────────────────
-  Widget _devBanner() => GestureDetector(
-        onTap: () { DevAuth.deactivate(); Navigator.of(context).pop(); },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: const BoxDecoration(color: Color(0xFF1A1A2E)),
-          child: Row(children: [
-            Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF00FF88), shape: BoxShape.circle)),
-            const SizedBox(width: 8),
-            Text('DEV MODE  —  Dummy data  —  Tap to exit',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF00FF88), letterSpacing: 0.5, fontFamily: 'sans-serif')),
-            const Spacer(),
-            const Icon(Icons.close_rounded, size: 12, color: Color(0xFF00FF88)),
-          ]),
-        ),
-      );
 
 }

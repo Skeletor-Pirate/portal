@@ -57,10 +57,8 @@ class _DashboardState extends State<_Dashboard> {
   @override
   void initState() {
     super.initState();
-    if (TokenStore.hasTokens && !AppStore.instance.isDevMode) {
+    if (TokenStore.hasTokens) {
       _loadData();
-    } else {
-      _statsLoading = false;
     }
   }
 
