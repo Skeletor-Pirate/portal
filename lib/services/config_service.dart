@@ -1,11 +1,13 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
 class ConfigService {
   static late SharedPreferences _prefs;
 
-  // In a real app we'd use environment variables, but here we proxy if on web
-  static const String _defaultServerUrl = kIsWeb ? 'http://localhost:8081' : 'https://api.aicos.gridsphere.in';
-  static const String _defaultAiUrl = kIsWeb ? 'http://localhost:8081/ai' : 'https://rag.aicos.gridsphere.in';
+  // Web uses the local dev backend. Mobile and desktop use the hosted backend by
+  // default, but a custom URL can be stored for local/testing environments.
+  static const String _defaultServerUrl = 'https://api.aicos.gridsphere.in';
+  static const String _defaultAiUrl = 'https://rag.aicos.gridsphere.in';
 
   static const String _keyServerUrl = 'custom_server_url';
   static const String _keyAiUrl = 'custom_ai_url';
@@ -15,7 +17,9 @@ class ConfigService {
   }
 
   static String get serverUrl {
-    return _prefs.getString(_keyServerUrl) ?? _defaultServerUrl;
+    final custom = _prefs.getString(_keyServerUrl);
+    if (custom != null && custom.trim().isNotEmpty) return custom.trim();
+    return kIsWeb ? 'http://localhost:8081' : _defaultServerUrl;
   }
 
   static Future<void> setServerUrl(String url) async {
@@ -27,7 +31,9 @@ class ConfigService {
   }
 
   static String get aiUrl {
-    return _prefs.getString(_keyAiUrl) ?? _defaultAiUrl;
+    final custom = _prefs.getString(_keyAiUrl);
+    if (custom != null && custom.trim().isNotEmpty) return custom.trim();
+    return kIsWeb ? 'http://localhost:8081/ai' : _defaultAiUrl;
   }
 
   static Future<void> setAiUrl(String url) async {
