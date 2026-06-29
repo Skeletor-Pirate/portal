@@ -472,12 +472,19 @@ class ApiService {
   Future<void> deleteSubject(String id) => _deleteWithFallback('/api/v1/academics/subjects/$id/', fallback: '/api/v1/subjects/$id/');
 
   Future<PaginatedResult<Enrollment>> getEnrollments({
-    int page = 1, String? studentId, String? status,
+    int page = 1, String? studentId, String? status, String? sectionId,
   }) async {
+    final isTeacher = AppStore.instance.detectedProfileType == 'teacher';
     final q = <String, dynamic>{'page': page};
     if (studentId != null) q['student'] = studentId;
     if (status != null)    q['status']  = status;
-    final d = await _getWithFallback('/api/v1/academics/enrollments/', fallback: '/api/v1/enrollments/', query: q);
+    if (sectionId != null) q['section_id'] = sectionId;
+    
+    final endpoint = isTeacher 
+        ? '/api/v1/academics/teacher-assignments/my-students/' 
+        : '/api/v1/academics/enrollments/';
+        
+    final d = await _getWithFallback(endpoint, fallback: '/api/v1/enrollments/', query: q);
     return PaginatedResult.fromJson(d, Enrollment.fromJson);
   }
 
