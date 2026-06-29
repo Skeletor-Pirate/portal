@@ -105,27 +105,33 @@ class _DashboardState extends State<_Dashboard> {
         if (sectionId == null) return;
 
         try {
-          final results = await Future.wait([
-            api.getAttendance(sectionId: sectionId),
-            subjectId != null ? api.getGrades(subjectId: subjectId) : Future.value(PaginatedResult<StudentGrade>(count: 0, results: [])),
-          ]);
-
-          final attendance = (results[0] as PaginatedResult<AttendanceRecord>).results;
-          final grades = (results[1] as PaginatedResult<StudentGrade>).results;
-
-          for (var record in attendance) {
-            totalAttendanceRecords++;
-            if (record.status == 'Present' || record.status == 'Late') {
-              totalPresent++;
+          int page = 1;
+          bool hasNext = true;
+          while (hasNext) {
+            final attRes = await api.getAttendance(sectionId: sectionId, page: page);
+            for (var record in attRes.results) {
+              totalAttendanceRecords++;
+              if (record.status == 'Present' || record.status == 'Late') {
+                totalPresent++;
+              }
             }
+            if (attRes.next != null) page++; else hasNext = false;
           }
 
           final Map<String, StudentGrade> maxGrades = {};
-          for (var grade in grades) {
-            final sId = grade.studentId;
-            final currentMax = maxGrades[sId]?.marksObtained ?? 0;
-            if (grade.marksObtained > currentMax || !maxGrades.containsKey(sId)) {
-              maxGrades[sId] = grade;
+          if (subjectId != null) {
+            page = 1;
+            hasNext = true;
+            while (hasNext) {
+              final gradeRes = await api.getGrades(subjectId: subjectId, page: page);
+              for (var grade in gradeRes.results) {
+                final sId = grade.studentId;
+                final currentMax = maxGrades[sId]?.marksObtained ?? 0;
+                if (grade.marksObtained > currentMax || !maxGrades.containsKey(sId)) {
+                  maxGrades[sId] = grade;
+                }
+              }
+              if (gradeRes.next != null) page++; else hasNext = false;
             }
           }
 
