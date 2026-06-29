@@ -576,10 +576,174 @@ class ApiService {
     }
   }
 
+  Future<PaginatedResult<AssignmentSubmission>> getStudentSubmissions({int page = 1}) async {
+    try {
+      final d = await get('/api/v1/operations/submissions/me/', query: {'page': page});
+      return PaginatedResult.fromJson(d, AssignmentSubmission.fromJson);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        final studentId = AppStore.instance.studentProfileId;
+        if (studentId == null) {
+          return PaginatedResult(count: 0, next: null, previous: null, results: []);
+        }
+        return getSubmissions(page: page, studentId: studentId);
+      }
+      rethrow;
+    }
+  }
+
   Future<AssignmentSubmission> submitAssignment(Map<String, dynamic> body) async {
     final d = await _postWithFallback('/api/v1/operations/submissions/', body, fallback: '/api/v1/submissions/');
     return AssignmentSubmission.fromJson(d);
   }
+
+  Future<Map<String, dynamic>> requestSubmissionUploadUrl(
+    String assignmentId,
+    String fileName,
+    String contentType,
+  ) async {
+    return await post('/api/v1/operations/submissions/request-upload/', {
+      'assignment_id': assignmentId,
+      'file_name': fileName,
+      'content_type': contentType,
+    });
+  }
+
+  Future<void> uploadBytesToSignedUrl(String uploadUrl, List<int> bytes, String contentType) async {
+    final uri = Uri.parse(uploadUrl);
+    final res = await http.put(uri, headers: {'Content-Type': contentType}, body: bytes);
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw ApiException('Upload failed with status ${res.statusCode}', statusCode: res.statusCode);
+    }
+  }
+
+  String _extractFilePathFromUploadUrl(String uploadUrl) {
+    final uri = Uri.parse(uploadUrl);
+    var path = uri.path;
+    if (path.startsWith('/')) path = path.substring(1);
+    final segments = path.split('/');
+    if (segments.length <= 1) return path;
+    return segments.sublist(1).join('/');
+  }
+
+  Future<AssignmentSubmission> confirmSubmission(String assignmentId, String filePath) async {
+    final d = await post('/api/v1/operations/submissions/confirm/', {
+      'assignment_id': assignmentId,
+      'file_path': filePath,
+    });
+    return AssignmentSubmission.fromJson(d);
+  }
+
+  Future<AssignmentSubmission> submitAssignmentFile({
+    required String assignmentId,
+    required String studentId,
+    required String fileName,
+    required List<int> bytes,
+    required String contentType,
+  }) async {
+    try {
+      final uploadData = await requestSubmissionUploadUrl(assignmentId, fileName, contentType);
+      final uploadUrl = uploadData['upload_url']?.toString();
+      if (uploadUrl == null) {
+        throw ApiException('Missing upload URL from backend');
+      }
+      await uploadBytesToSignedUrl(uploadUrl, bytes, contentType);
+      final filePath = _extractFilePathFromUploadUrl(uploadUrl);
+      return await confirmSubmission(assignmentId, filePath);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        // Fallback to direct multipart upload for older backend versions.
+        final url = _uri('/api/v1/operations/submissions/');
+        final request = http.MultipartRequest('POST', url);
+        final headers = _headers();
+        headers.remove('Content-Type');
+        request.headers.addAll(headers);
+        request.fields['assignment'] = assignmentId;
+        request.fields['student'] = studentId;
+        request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+        final streamed = await request.send();
+        final response = await http.Response.fromStream(streamed);
+        final parsed = await _parse(response);
+        return AssignmentSubmission.fromJson(parsed);
+      }
+      rethrow;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STUDENT SPECIFIC
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getStudentDashboard() async {
+    return await get('/api/v1/profiles/students/dashboard/');
+  }
+
+  Future<PaginatedResult<Subject>> getStudentSubjects() async {
+    try {
+      final d = await get('/api/v1/profiles/students/me/subjects/');
+      if (d is Map<String, dynamic> && d.containsKey('results')) {
+        return PaginatedResult.fromJson(d, Subject.fromJson);
+      }
+      return PaginatedResult(count: 0, next: null, previous: null, results: []);
+    } catch (e) {
+      return PaginatedResult(count: 0, next: null, previous: null, results: []);
+    }
+  }
+
+  Future<AttendanceSummaryData> getAttendanceSummary() async {
+    try {
+      final d = await get('/api/v1/operations/attendance/me/summary/');
+      return AttendanceSummaryData.fromJson(d);
+    } catch (e) {
+      return AttendanceSummaryData();
+    }
+  }
+
+  Future<PaginatedResult<AttendanceRecord>> getStudentAttendanceRecords({int page = 1}) async {
+    try {
+      final d = await get('/api/v1/operations/attendance/me/', query: {'page': page});
+      return PaginatedResult.fromJson(d, AttendanceRecord.fromJson);
+    } catch (e) {
+      return PaginatedResult(count: 0, next: null, previous: null, results: []);
+    }
+  }
+
+  Future<PaginatedResult<StudentGrade>> getStudentGrades({int page = 1}) async {
+    try {
+      final d = await get('/api/v1/operations/grades/me/', query: {'page': page});
+      return PaginatedResult.fromJson(d, StudentGrade.fromJson);
+    } catch (e) {
+      return PaginatedResult(count: 0, next: null, previous: null, results: []);
+    }
+  }
+
+  Future<ReportCardData> getReportCard() async {
+    try {
+      final d = await get('/api/v1/operations/grades/me/report-card/');
+      return ReportCardData.fromJson(d);
+    } catch (e) {
+      return ReportCardData();
+    }
+  }
+
+  Future<PaginatedResult<SchoolAssignment>> getStudentAssignments({int page = 1}) async {
+    try {
+      final d = await get('/api/v1/operations/assignments/me/', query: {'page': page});
+      return PaginatedResult.fromJson(d, SchoolAssignment.fromJson);
+    } catch (e) {
+      return PaginatedResult(count: 0, next: null, previous: null, results: []);
+    }
+  }
+
+  Future<PaginatedResult<SchoolAssignment>> getUpcomingAssignments() async {
+    try {
+      final d = await get('/api/v1/operations/assignments/me/upcoming/');
+      return PaginatedResult.fromJson(d, SchoolAssignment.fromJson);
+    } catch (e) {
+      return PaginatedResult(count: 0, next: null, previous: null, results: []);
+    }
+  }
+
 
   Future<PaginatedResult<AttendanceRecord>> getAttendance({
     int page = 1, String? studentId, String? date, String? sectionId,
@@ -1507,7 +1671,7 @@ class SchoolAssignment {
       sectionId:   secId,
       sectionName: secName,
       maxMarks:    (j['max_marks'] as num?)?.toDouble(),
-      status:      j['status']?.toString() ?? 'Pending',
+      status:      (j['submission_status'] ?? j['status'])?.toString() ?? 'Pending',
     );
   }
 }
@@ -1518,22 +1682,110 @@ class AssignmentSubmission {
   final String id;
   final String assignmentId;
   final String studentId;
+  final String? assignmentTitle;
   final String? status;
+  final String? submittedAt;
+  final String? fileUrl;
   final double? marksObtained;
+  final double? grade;
 
   AssignmentSubmission({
     required this.id,
     required this.assignmentId,
     required this.studentId,
+    this.assignmentTitle,
     this.status,
+    this.submittedAt,
+    this.fileUrl,
     this.marksObtained,
+    this.grade,
   });
 
-  factory AssignmentSubmission.fromJson(Map<String, dynamic> j) => AssignmentSubmission(
-        id:            j['id']?.toString() ?? '',
-        assignmentId:  j['assignment']?.toString() ?? '',
-        studentId:     j['student']?.toString() ?? '',
-        status:        j['status']?.toString(),
-        marksObtained: (j['marks_obtained'] as num?)?.toDouble(),
-      );
+  factory AssignmentSubmission.fromJson(Map<String, dynamic> j) {
+    String assignmentId = '';
+    if (j['assignment'] is Map) {
+      assignmentId = j['assignment']['id']?.toString() ?? '';
+    } else {
+      assignmentId = j['assignment']?.toString() ?? '';
+    }
+
+    String studentId = '';
+    if (j['student'] is Map) {
+      studentId = j['student']['id']?.toString() ?? '';
+    } else {
+      studentId = j['student']?.toString() ?? '';
+    }
+
+    String? assignmentTitle;
+    if (j['assignment_title'] != null) {
+      assignmentTitle = j['assignment_title']?.toString();
+    } else if (j['assignment_name'] != null) {
+      assignmentTitle = j['assignment_name']?.toString();
+    } else if (j['assignment'] is Map) {
+      assignmentTitle = j['assignment']['title']?.toString();
+    }
+
+    String? fileUrl;
+    if (j['file'] is String) {
+      fileUrl = j['file'];
+    } else if (j['file'] is Map) {
+      fileUrl = j['file']['url']?.toString();
+    }
+
+    double? grade;
+    if (j['marks_obtained'] != null) {
+      grade = (j['marks_obtained'] as num?)?.toDouble();
+    } else if (j['grade'] != null) {
+      grade = double.tryParse(j['grade']?.toString() ?? '');
+    }
+
+    return AssignmentSubmission(
+      id:            j['id']?.toString() ?? '',
+      assignmentId:  assignmentId,
+      studentId:     studentId,
+      assignmentTitle: assignmentTitle,
+      status:        (j['status'] ?? j['submission_status'])?.toString(),
+      submittedAt:   j['submitted_at']?.toString(),
+      fileUrl:       fileUrl,
+      marksObtained: (j['marks_obtained'] as num?)?.toDouble(),
+      grade:         grade,
+    );
+  }
+}
+
+// ── AttendanceSummaryData ──────────────────────────────────────────────────
+class AttendanceSummaryData {
+  final int totalDays;
+  final int present;
+  final int absent;
+  final int late;
+  final double attendancePercentage;
+
+  AttendanceSummaryData({
+    this.totalDays = 0,
+    this.present = 0,
+    this.absent = 0,
+    this.late = 0,
+    this.attendancePercentage = 0.0,
+  });
+
+  factory AttendanceSummaryData.fromJson(Map<String, dynamic> j) => AttendanceSummaryData(
+    totalDays: j['total_days'] ?? 0,
+    present: j['present'] ?? 0,
+    absent: j['absent'] ?? 0,
+    late: j['late'] ?? 0,
+    attendancePercentage: (j['attendance_percentage'] as num?)?.toDouble() ?? 0.0,
+  );
+}
+
+// ── ReportCardData ─────────────────────────────────────────────────────────
+class ReportCardData {
+  final double overallPercentage;
+  final List<dynamic> exams;
+  ReportCardData({this.overallPercentage = 0.0, this.exams = const []});
+  
+  factory ReportCardData.fromJson(Map<String, dynamic> j) => ReportCardData(
+    overallPercentage: (j['overall_percentage'] as num?)?.toDouble() ?? 0.0,
+    exams: j['exams'] ?? [],
+  );
 }

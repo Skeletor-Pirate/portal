@@ -114,6 +114,7 @@ const Map<UserRole, RoleConfig> kRoles = {
     nav: [
       NavItem(id: 'dashboard', label: 'Dashboard', iconName: 'dashboard'),
       NavItem(id: 'subjects', label: 'My Subjects', iconName: 'subjects'),
+      NavItem(id: 'assignments', label: 'Assignments', iconName: 'assignments'),
       NavItem(id: 'grades', label: 'Grades & Report Card', iconName: 'grades'),
       NavItem(id: 'attendance', label: 'Attendance', iconName: 'attendance'),
       NavItem(id: 'aitools', label: 'AI Tutor', iconName: 'aitools'),
@@ -122,8 +123,8 @@ const Map<UserRole, RoleConfig> kRoles = {
     bottom: [
       NavItem(id: 'dashboard', label: 'Dash', iconName: 'dashboard'),
       NavItem(id: 'subjects', label: 'Subjects', iconName: 'subjects'),
+      NavItem(id: 'assignments', label: 'Assignments', iconName: 'assignments'),
       NavItem(id: 'grades', label: 'Grades', iconName: 'grades'),
-      NavItem(id: 'aitools', label: 'AI Tutor', iconName: 'aitools'),
       NavItem(id: 'profile', label: 'Profile', iconName: 'profile'),
     ],
   ),
