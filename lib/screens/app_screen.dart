@@ -206,6 +206,7 @@ class _AppScreenState extends State<AppScreen> {
   // ── Drawer ───────────────────────────────────
 
   Widget _drawer(BuildContext context) {
+    final store = AppStore.instance;
     final topPad = MediaQuery.of(context).padding.top;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return Container(
@@ -236,17 +237,33 @@ class _AppScreenState extends State<AppScreen> {
                 border: Border.all(color: Colors.white.withOpacity(0.35), width: 2.5),
               ),
               child: ClipOval(
-                child: Image.asset(cfg.avatarAsset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.navy2,
-                          child: Center(
-                              child: Text(cfg.id,
-                                  style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white))),
-                        )),
+                child: ValueListenableBuilder<String?>(
+                  valueListenable: store.profileImageUrl,
+                  builder: (context, imageUrl, _) {
+                    final initialStr = store.currentUserName.isNotEmpty 
+                        ? store.currentUserName.split(' ').take(2).map((e) => e.isNotEmpty ? e[0] : '').join('').toUpperCase()
+                        : cfg.id;
+                        
+                    final fallback = Container(
+                      color: AppColors.blue,
+                      child: Center(
+                        child: Text(
+                          initialStr,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
+                      ),
+                    );
+
+                    if (imageUrl != null && imageUrl.isNotEmpty) {
+                      return Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => fallback,
+                      );
+                    }
+                    return fallback;
+                  },
+                ),
               ),
             ),
             const SizedBox(width: 13),

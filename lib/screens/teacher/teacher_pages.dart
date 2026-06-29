@@ -52,6 +52,7 @@ class _DashboardState extends State<_Dashboard> {
   List<TeacherAssignment> _myAssignments = [];
   double _avgAttendance = 0.0;
   double _avgPerformance = 0.0;
+  int _totalAssignments = 0;
   bool _statsLoading = true;
 
   @override
@@ -84,72 +85,63 @@ class _DashboardState extends State<_Dashboard> {
   }
 
   Future<void> _loadStats() async {
-    if (_myAssignments.isEmpty) {
-      if (mounted) setState(() => _statsLoading = false);
-      return;
-    }
-    
     int totalAttendanceRecords = 0;
     int totalPresent = 0;
     double totalObtainedMarks = 0;
     double totalMaxMarks = 0;
+    int assignmentsCount = 0;
 
     final api = ApiService();
 
-    await Future.wait(_myAssignments.map((cls) async {
-      final sectionId = cls.sectionId;
-      final academicYearId = cls.academicYearId;
-      final subjectId = cls.subjectId;
+    try {
+      final assignRes = await api.getAssignments();
+      assignmentsCount = assignRes.count;
+    } catch (_) {}
 
-      if (sectionId == null || academicYearId == null) return;
+    if (_myAssignments.isNotEmpty) {
+      await Future.wait(_myAssignments.map((cls) async {
+        final sectionId = cls.sectionId;
+        final subjectId = cls.subjectId;
+        if (sectionId == null) return;
 
-      try {
-        final results = await Future.wait([
-          api.getEnrollments(status: 'current'),
-          api.getAttendance(sectionId: sectionId),
-          subjectId != null ? api.getGrades(subjectId: subjectId) : Future.value(PaginatedResult<StudentGrade>(count: 0, results: [])),
-        ]);
+        try {
+          final results = await Future.wait([
+            api.getAttendance(sectionId: sectionId),
+            subjectId != null ? api.getGrades(subjectId: subjectId) : Future.value(PaginatedResult<StudentGrade>(count: 0, results: [])),
+          ]);
 
-        final enrollments = (results[0] as PaginatedResult<Enrollment>).results.where((e) => e.sectionId == sectionId).toList();
-        final attendance = (results[1] as PaginatedResult<AttendanceRecord>).results;
-        final grades = (results[2] as PaginatedResult<StudentGrade>).results;
+          final attendance = (results[0] as PaginatedResult<AttendanceRecord>).results;
+          final grades = (results[1] as PaginatedResult<StudentGrade>).results;
 
-        final Map<String, int> attTotal = {};
-        final Map<String, int> attPresent = {};
-        for (var record in attendance) {
-          attTotal[record.studentId] = (attTotal[record.studentId] ?? 0) + 1;
-          if (record.status == 'Present' || record.status == 'Late') {
-            attPresent[record.studentId] = (attPresent[record.studentId] ?? 0) + 1;
+          for (var record in attendance) {
+            totalAttendanceRecords++;
+            if (record.status == 'Present' || record.status == 'Late') {
+              totalPresent++;
+            }
           }
+
+          final Map<String, StudentGrade> maxGrades = {};
+          for (var grade in grades) {
+            final sId = grade.studentId;
+            final currentMax = maxGrades[sId]?.marksObtained ?? 0;
+            if (grade.marksObtained > currentMax || !maxGrades.containsKey(sId)) {
+              maxGrades[sId] = grade;
+            }
+          }
+
+          for (var maxG in maxGrades.values) {
+            totalObtainedMarks += maxG.marksObtained;
+            totalMaxMarks += maxG.maxMarks;
+          }
+        } catch (e) {
+          // Ignore individual class fetch errors
         }
-
-        final Map<String, StudentGrade> maxGrades = {};
-        for (var grade in grades) {
-          final sId = grade.studentId;
-          final currentMax = maxGrades[sId]?.marksObtained ?? 0;
-          if (grade.marksObtained > currentMax || !maxGrades.containsKey(sId)) {
-            maxGrades[sId] = grade;
-          }
-        }
-
-        for (var student in enrollments) {
-          final sId = student.studentId;
-          if (attTotal.containsKey(sId)) {
-            totalAttendanceRecords += attTotal[sId]!;
-            totalPresent += attPresent[sId] ?? 0;
-          }
-          if (maxGrades.containsKey(sId)) {
-            totalObtainedMarks += maxGrades[sId]!.marksObtained;
-            totalMaxMarks += maxGrades[sId]!.maxMarks;
-          }
-        }
-      } catch (e) {
-        // Ignore individual class fetch errors
-      }
-    }));
+      }));
+    }
 
     if (mounted) {
       setState(() {
+        _totalAssignments = assignmentsCount;
         _avgAttendance = totalAttendanceRecords > 0 ? (totalPresent / totalAttendanceRecords * 100) : 0.0;
         _avgPerformance = totalMaxMarks > 0 ? (totalObtainedMarks / totalMaxMarks * 100) : 0.0;
         _statsLoading = false;
@@ -177,7 +169,7 @@ class _DashboardState extends State<_Dashboard> {
         QsItem(val: '${_myAssignments.length}', label: 'My Classes'),
         QsItem(val: '$attStr%', label: 'Attendance'),
         QsItem(val: '$perfStr%', label: 'Performance'),
-        QsItem(val: '0', label: 'Assignments'),
+        QsItem(val: '$_totalAssignments', label: 'Assignments'),
       ]),
 
       if (_myAssignments.isNotEmpty) ...[

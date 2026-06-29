@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'db_service.dart';
 import 'ai_service.dart';
 import 'config_service.dart';
+import 'app_store.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
@@ -528,16 +529,19 @@ class ApiService {
     int page = 1, String? sectionId,
   }) async {
     try {
-      final me = await getMe();
-      final rows = await DbService.getAssignments(me.schoolId ?? '');
-      
-      // Filter by section if requested
-      final filtered = sectionId != null 
-          ? rows.where((r) => r['section'] == sectionId).toList()
-          : rows;
+      final isTeacher = AppStore.instance.detectedProfileType == 'teacher';
+      final endpoint = isTeacher
+          ? '/api/v1/operations/assignments/me/teacher/'
+          : '/api/v1/operations/assignments/';
           
-      final results = filtered.map((r) => SchoolAssignment.fromJson(r)).toList();
-      return PaginatedResult(count: results.length, next: null, previous: null, results: results);
+      final d = await _getWithFallback(endpoint, fallback: endpoint, query: {'page': page});
+      final result = PaginatedResult.fromJson(d, SchoolAssignment.fromJson);
+      
+      if (sectionId != null) {
+        final filtered = result.results.where((a) => a.sectionId == sectionId).toList();
+        return PaginatedResult(count: filtered.length, next: result.next, previous: result.previous, results: filtered);
+      }
+      return result;
     } catch (e) {
       return PaginatedResult(count: 0, next: null, previous: null, results: []);
     }
@@ -1465,18 +1469,40 @@ class SchoolAssignment {
     this.status,
   });
 
-  factory SchoolAssignment.fromJson(Map<String, dynamic> j) => SchoolAssignment(
-        id:          j['id']?.toString() ?? '',
-        title:       j['title'] ?? '',
-        description: j['description']?.toString(),
-        dueDate:     j['due_date']?.toString(),
-        subjectId:   j['subject']?.toString(),
-        subjectName: j['subject_name']?.toString() ?? j['subject']?.toString() ?? 'Unknown Subject',
-        sectionId:   j['section']?.toString(),
-        sectionName: j['section_name']?.toString(),
-        maxMarks:    (j['max_marks'] as num?)?.toDouble(),
-        status:      j['status']?.toString() ?? 'Pending',
-      );
+  factory SchoolAssignment.fromJson(Map<String, dynamic> j) {
+    String? subId;
+    String? subName;
+    if (j['subject'] is Map) {
+      subId = j['subject']['id']?.toString();
+      subName = j['subject']['name']?.toString();
+    } else {
+      subId = j['subject']?.toString();
+      subName = j['subject_name']?.toString();
+    }
+
+    String? secId;
+    String? secName;
+    if (j['section'] is Map) {
+      secId = j['section']['id']?.toString();
+      secName = j['section']['name']?.toString();
+    } else {
+      secId = j['section']?.toString();
+      secName = j['section_name']?.toString();
+    }
+
+    return SchoolAssignment(
+      id:          j['id']?.toString() ?? '',
+      title:       j['title'] ?? '',
+      description: j['description']?.toString(),
+      dueDate:     j['due_date']?.toString(),
+      subjectId:   subId,
+      subjectName: subName ?? 'Unknown Subject',
+      sectionId:   secId,
+      sectionName: secName,
+      maxMarks:    (j['max_marks'] as num?)?.toDouble(),
+      status:      j['status']?.toString() ?? 'Pending',
+    );
+  }
 }
 
 // ── AssignmentSubmission ───────────────────────────────────────────────────
