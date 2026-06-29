@@ -6,6 +6,7 @@ import '../models/role_config.dart';
 import '../widgets/nav_icons.dart';
 import 'page_router.dart';
 import '../services/app_store.dart';
+import 'login_screen.dart';
 
 class AppScreen extends StatefulWidget {
   final UserRole role;
@@ -349,7 +350,7 @@ class _AppScreenState extends State<AppScreen> {
         Padding(
           padding: EdgeInsets.fromLTRB(10, 10, 10, 10 + bottomPad),
           child: GestureDetector(
-            onTap: () { AppStore.instance.clearSession(); Navigator.of(context).pop(); },
+            onTap: () { AppStore.instance.clearSession(); Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false); },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(

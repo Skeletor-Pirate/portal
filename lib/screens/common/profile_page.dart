@@ -6,6 +6,7 @@ import '../../services/app_store.dart';
 import '../../services/api_service.dart';
 import '../../models/role_config.dart';
 import '../../widgets/builders.dart';
+import '../login_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   final UserRole role;
@@ -189,7 +190,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ])),
       Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 20), child: dangerBtn('Sign Out', onTap: () async {
         await AppStore.instance.clearSession();
-        if (context.mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+        if (context.mounted) Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
       })),
     ]);
   }
